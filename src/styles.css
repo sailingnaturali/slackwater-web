@@ -1,142 +1,428 @@
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+
+/*
+ * Slackwater — instrument, not app.
+ *
+ * This gets read at 05:00 in a cockpit, often one-handed, often wet. So the
+ * aesthetic is a chart table: brand navy, tabular figures, no decoration that
+ * costs legibility. Spec §1 is explicit that we do not compete on polish — we
+ * compete on being right, and on being there with no signal.
+ *
+ * Fonts are self-hosted (@fontsource) rather than fetched from a CDN. A webfont
+ * request would be a network dependency in an app whose whole promise is not
+ * needing one; the service worker precaches these with everything else.
+ *
+ * Palette is the Sailing Naturali brand (planning/brand-palette.md) — the
+ * Sky → Steel → Harbor → Deep Water → Navy ramp is literally water.
+ */
+
 :root {
-  --bg: #0b1a2b;
-  --panel: #12263c;
-  --ink: #e8eef5;
-  --muted: #8ba3bd;
-  --accent: #4aa8e0;
-  --warm: #e8a33d;
+  --navy: #002448;
+  --navy-deep: #00183c;
+  --deep-water: #083058;
+  --harbor: #184870;
+  --steel: #5888a8;
+  --sky: #c0d8e4;
+  --green: #58a058;
+  --leaf: #88b868;
+
+  --bg: var(--navy-deep);
+  --panel: #06203f;
+  --line: #14375c;
+  --ink: #eaf2f7;
+  --muted: var(--steel);
+
+  /* Rising green / falling blue mirrors the prototype's flood-green, ebb-blue.
+     Arrows and labels carry the same meaning, so colour is never the only cue. */
+  --rising: var(--leaf);
+  --falling: #7fb4d8;
+
+  --radius: 14px;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 
+html, body, #root { height: 100%; }
+
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(120% 80% at 50% -10%, var(--deep-water) 0%, transparent 60%),
+    var(--bg);
   color: var(--ink);
-  font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-main {
-  max-width: 46rem;
-  margin: 0 auto;
-  padding: max(1rem, env(safe-area-inset-top)) 1rem 3rem;
+button, input { font: inherit; color: inherit; }
+a { color: var(--sky); text-underline-offset: 2px; }
+abbr { text-decoration: none; font-size: 0.5em; margin-left: 0.15em; color: var(--muted); }
+
+:focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- first run */
+
+.gate {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.5rem max(2rem, env(safe-area-inset-bottom));
 }
 
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
+.gate-inner { max-width: 30rem; }
 
-h1 {
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0.22em;
+.gate-mark,
+.mark {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.34em;
   text-transform: uppercase;
-  margin: 0;
+  color: var(--steel);
+  margin: 0 0 2rem;
 }
 
-h2 {
-  font-size: 0.8rem;
+.gate h1 {
+  font-size: clamp(1.9rem, 6vw, 2.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin: 0 0 0.75rem;
+  margin: 0 0 1rem;
+  text-wrap: balance;
 }
 
-button, select {
-  font: inherit;
-  color: var(--ink);
-  background: var(--panel);
-  border: 1px solid #24405c;
-  border-radius: 0.6rem;
-  padding: 0.5rem 0.85rem;
+.gate-body { color: var(--sky); margin: 0 0 2rem; text-wrap: pretty; }
+.gate-actions { display: flex; flex-direction: column; gap: 0.75rem; }
+
+button.primary,
+button.ghost {
+  border-radius: var(--radius);
+  padding: 0.9rem 1.25rem;
   cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
-button:disabled { opacity: 0.6; cursor: default; }
+button.primary {
+  background: var(--green);
+  border: 1px solid var(--green);
+  color: #04140a;
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled) { background: var(--leaf); border-color: var(--leaf); }
+button.primary:disabled { opacity: 0.6; cursor: progress; }
 
-.hero, .table {
+button.ghost { background: transparent; border: 1px solid var(--line); color: var(--sky); }
+button.ghost:hover { border-color: var(--steel); }
+
+.gate-fine { color: var(--muted); font-size: 0.85rem; margin: 1.75rem 0 0; }
+
+/* ------------------------------------------------------------------- shell */
+
+.shell { min-height: 100%; }
+
+.content {
+  padding: 1rem 1rem max(2rem, env(safe-area-inset-bottom));
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.panel {
   background: var(--panel);
-  border-radius: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   padding: 1.25rem;
-  margin-bottom: 1rem;
 }
 
-.station select { width: 100%; }
+/* ------------------------------------------------------------------ topbar */
 
-.match {
-  margin: 0.5rem 0 0;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-.match.approximate, .match.nearest { color: var(--warm); }
+.topbar { display: flex; }
 
-.state {
+.picker {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
-  flex-wrap: wrap;
-  margin: 1.25rem 0 0.35rem;
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  text-align: left;
 }
-.state strong { font-size: 2.6rem; font-weight: 650; letter-spacing: -0.02em; }
-.state .rising { color: var(--accent); font-weight: 600; }
-.state .falling { color: var(--warm); font-weight: 600; }
+.picker:hover { border-color: var(--steel); }
+.picker-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.picker-name { font-weight: 600; flex: 1; }
+.picker-caret { color: var(--steel); }
 
-.next { margin: 0; }
+/* -------------------------------------------------------------------- hero */
+
+.place h1 {
+  font-size: clamp(1.35rem, 4vw, 1.8rem);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0;
+  text-wrap: balance;
+}
+.place .context { color: var(--muted); margin: 0.15rem 0 0; font-size: 0.92rem; }
+
+.match { font-size: 0.85rem; margin: 0.5rem 0 0; color: var(--muted); }
+.match.approximate, .match.nearest { color: var(--leaf); }
+
+.reading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin: 1.5rem 0 0.35rem;
+}
+.dir {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.dir.rising { color: var(--rising); }
+.dir.falling { color: var(--falling); }
+
+.value {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(3rem, 13vw, 4.25rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.next { margin: 0; color: var(--sky); }
 .muted { color: var(--muted); }
 
-.chart {
-  width: 100%;
-  height: auto;
-  display: block;
-  margin-bottom: 1rem;
+/* ------------------------------------------------------------------- chart */
+
+.chart-panel { padding: 1rem 0.75rem 0.5rem; }
+.chart { width: 100%; height: auto; display: block; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis {
+  fill: var(--muted);
+  font-size: 11px;
+  font-family: "IBM Plex Mono", monospace;
 }
-.chart .grid { stroke: #24405c; stroke-width: 1; }
-.chart .axis { fill: var(--muted); font-size: 11px; }
-.chart .curve { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; }
+.chart .curve { fill: none; stroke: var(--sky); stroke-width: 2.5; stroke-linejoin: round; }
 .chart .area { stroke: none; }
-.chart .dot.high { fill: var(--accent); }
-.chart .dot.low { fill: var(--warm); }
-.chart .nowline { stroke: var(--ink); stroke-width: 1.5; opacity: 0.65; }
+.chart .dot.high { fill: var(--rising); }
+.chart .dot.low { fill: var(--falling); }
+.chart .nowline { stroke: var(--ink); stroke-width: 1.5; opacity: 0.5; }
 .chart .nowdot { fill: var(--ink); }
 
-.row {
+/* ------------------------------------------------------------------ events */
+
+.events-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+.events h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+.events-date { color: var(--muted); font-size: 0.85rem; margin: 0.1rem 0 0; }
+
+.pager { display: flex; gap: 0.35rem; }
+.pager button {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0 0.6rem;
+  cursor: pointer;
+  color: var(--sky);
+}
+.pager button:hover:not(:disabled) { border-color: var(--steel); }
+.pager button:disabled { opacity: 0.4; cursor: default; }
+.pager .today { font-size: 0.82rem; }
+
+.event-rows { list-style: none; margin: 0; padding: 0; }
+
+.event {
+  display: grid;
+  grid-template-columns: 3px 3.6rem 1fr auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--line);
+}
+.event:first-child { border-top: none; }
+.event.past {
+  /* Dimmed, not hidden: "when was low this morning" is a real question, and a
+     past turn still tells you which way the water has been going. */
+  opacity: 0.62;
+}
+.event.empty { display: block; color: var(--muted); }
+
+.swatch { height: 1.6rem; border-radius: 2px; }
+.swatch.high { background: var(--rising); }
+.swatch.low { background: var(--falling); }
+
+.event .kind {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.event time,
+.event .height {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+.event time { font-size: 1.05rem; }
+.event .height { font-weight: 600; font-size: 1.05rem; }
+
+/* ---------------------------------------------------------------- stations */
+
+.sidebar {
+  background: var(--navy);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  padding: 1.15rem 1rem 0.5rem;
+}
+.sidebar-head .mark { margin: 0; }
+
+.close {
+  background: transparent;
+  border: none;
+  color: var(--steel);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+
+.search { padding: 0.75rem 1rem; }
+.search input {
+  width: 100%;
+  background: var(--navy-deep);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+}
+.search input::placeholder { color: var(--muted); }
+
+.station-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.6rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+.station-rows .none { color: var(--muted); padding: 1rem 0.4rem; font-size: 0.9rem; }
+
+button.station {
+  display: flex;
+  align-items: baseline;
   gap: 0.75rem;
-  padding: 0.55rem 0;
-  border-top: 1px solid #1c3450;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  padding: 0.6rem 0.65rem;
+  cursor: pointer;
+  text-align: left;
 }
-.row:first-of-type { border-top: none; }
+button.station:hover { background: #0d2b4d; }
+button.station.current { background: var(--harbor); }
 
-.tag {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.2rem 0.55rem;
-  border-radius: 0.4rem;
-  min-width: 3.4rem;
-  text-align: center;
-  color: #06121f;
+.station-name { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.station-name .primary { font-weight: 500; }
+.station-name .context { font-size: 0.8rem; color: var(--muted); }
+button.station.current .context { color: var(--sky); }
+
+.km {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
 }
-.tag.high { background: var(--accent); }
-.tag.low { background: var(--warm); }
 
-.when { font-variant-numeric: tabular-nums; }
-.level { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
-.datum { font-size: 0.82rem; margin: 0.9rem 0 0; }
+/* ------------------------------------------------------------------ footer */
 
-footer { font-size: 0.82rem; text-align: center; }
-footer p { margin: 0.4rem 0; }
-a { color: var(--accent); }
+footer { font-size: 0.82rem; padding: 0 0.25rem; }
+footer p { margin: 0.45rem 0; }
+footer .warn { color: var(--sky); }
 
-@media (max-width: 30rem) {
-  .state strong { font-size: 2.1rem; }
+/* ------------------------------------------------------------- breakpoints */
+
+/* Phone: the list is a sheet over the reading, because the reading is why you
+   opened the app. */
+@media (max-width: 61.99rem) {
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(20rem, 86vw);
+    z-index: 2;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+    padding-top: env(safe-area-inset-top);
+  }
+  .sidebar.open { transform: none; }
+  .scrim { position: fixed; inset: 0; background: rgba(0, 12, 24, 0.6); z-index: 1; }
+  .content { padding-top: max(1rem, env(safe-area-inset-top)); }
+}
+
+/* Tablet and up: the list earns permanent space, so the picker button that
+   stood in for it on a phone is redundant. */
+@media (min-width: 62rem) {
+  .shell {
+    display: grid;
+    grid-template-columns: 19rem 1fr;
+    height: 100%;
+  }
+  .sidebar { position: sticky; top: 0; height: 100vh; }
+  .close, .topbar, .scrim { display: none; }
+  .content {
+    padding: 1.75rem;
+    max-width: 64rem;
+    overflow-y: auto;
+    height: 100vh;
+  }
+}
+
+/* Desktop: the schedule sits beside the chart rather than under it, so a whole
+   day is legible without scrolling. */
+@media (min-width: 82rem) {
+  .content {
+    max-width: 78rem;
+    grid-template-columns: minmax(0, 1.35fr) minmax(21rem, 1fr);
+    grid-template-areas:
+      "hero   events"
+      "chart  events"
+      "footer events";
+  }
+  .hero { grid-area: hero; }
+  .chart-panel { grid-area: chart; }
+  .events { grid-area: events; align-self: start; }
+  footer { grid-area: footer; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
 }

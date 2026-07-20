@@ -1,30 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  extremesOn,
-  matchStation,
-  predict,
-  stations,
-  type Match,
-  type Station,
-  type TideState,
-} from "./tides";
+import { matchStation, predict, stations, type Match, type Station } from "./tides";
+import { stationName } from "./stationName";
 import { TideChart } from "./TideChart";
+import { EventList } from "./EventList";
+import { StationList } from "./StationList";
+import { LocationGate, type GateResult } from "./LocationGate";
 
 /** Friday Harbor: central, well-measured, and inside the bundled coverage. */
-const DEFAULT_STATION =
-  stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];
+const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];
+
+const SEEN_GATE = "slackwater.gate";
 
 const QUALITY_COPY: Record<Match["quality"], string> = {
   good: "good match",
   approximate: "approximate — the tide varies across this area",
-  nearest: "nearest station, but far off",
+  nearest: "nearest station, but a long way off",
 };
 
 export function App() {
-  const [station, setStation] = useState<Station>(DEFAULT_STATION);
+  // Returning visitors skip the ask; the browser remembers the grant anyway.
+  const [gated, setGated] = useState(() => !localStorage.getItem(SEEN_GATE));
+  const [station, setStation] = useState<Station>(FALLBACK);
   const [match, setMatch] = useState<Match | null>(null);
+  const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
   const [now, setNow] = useState(() => new Date());
-  const [locating, setLocating] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
 
   // The readout is a clock, not a snapshot.
   useEffect(() => {
@@ -32,33 +32,26 @@ export function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const state: TideState = useMemo(() => predict(station, now), [station, now]);
-  const today = useMemo(
-    () => extremesOn(state, now, station.timezone),
-    [state, now, station.timezone],
-  );
-
-  function locate() {
-    if (!navigator.geolocation) return;
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const found = matchStation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        if (found) {
-          setStation(found.station);
-          setMatch(found);
-        }
-        setLocating(false);
-      },
-      // Denied or unavailable is not an error state: the app already shows a
-      // real station. Fall back silently rather than blocking behind a prompt.
-      () => setLocating(false),
-      { timeout: 8000, maximumAge: 300_000 },
-    );
+  function resolveGate(result: GateResult) {
+    localStorage.setItem(SEEN_GATE, "1");
+    if (result.kind === "located") {
+      setOrigin(result);
+      const found = matchStation(result);
+      if (found) {
+        setStation(found.station);
+        setMatch(found);
+      }
+    } else {
+      // Declined: the list is the answer, not an empty screen.
+      setListOpen(true);
+    }
+    setGated(false);
   }
+
+  const state = useMemo(() => predict(station, now), [station, now]);
+  const name = useMemo(() => stationName(station.name), [station]);
+
+  if (gated) return <LocationGate onResolve={resolveGate} />;
 
   const time = (date: Date) =>
     date.toLocaleTimeString("en-CA", {
@@ -72,93 +65,94 @@ export function App() {
     ? Math.round((state.next.time.getTime() - now.getTime()) / 60_000)
     : null;
 
+  function choose(next: Station) {
+    setStation(next);
+    // The badge describes how well an automatic snap fits. A deliberate pick
+    // needs no hedging — the user said which station they meant.
+    setMatch(null);
+    setListOpen(false);
+  }
+
   return (
-    <main>
-      <header>
-        <h1>Slackwater</h1>
-        <button onClick={locate} disabled={locating}>
-          {locating ? "Locating…" : "Use my location"}
-        </button>
-      </header>
-
-      <section className="hero">
-        <div className="station">
-          <select
-            value={station.id}
-            onChange={(event) => {
-              const next = stations.find((s) => s.id === event.target.value);
-              if (next) {
-                setStation(next);
-                setMatch(null);
-              }
-            }}
-          >
-            {stations.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          {match && (
-            <p className={`match ${match.quality}`}>
-              {match.distanceKm.toFixed(1)} km away · {QUALITY_COPY[match.quality]}
-            </p>
-          )}
+    <div className="shell">
+      <aside className={listOpen ? "sidebar open" : "sidebar"}>
+        <div className="sidebar-head">
+          <p className="mark">Slackwater</p>
+          <button className="close" onClick={() => setListOpen(false)} aria-label="Close list">
+            ✕
+          </button>
         </div>
+        <StationList selected={station} origin={origin} onSelect={choose} />
+      </aside>
 
-        <p className="state">
-          <span className={state.rising ? "rising" : "falling"}>
-            {state.rising ? "▲ Rising" : "▼ Falling"}
-          </span>
-          <strong>{state.level.toFixed(2)} m</strong>
-          <span className="muted">now</span>
-        </p>
+      {listOpen && <div className="scrim" onClick={() => setListOpen(false)} />}
 
-        {state.next && untilNext !== null && (
-          <p className="next">
-            Next {state.next.high ? "high" : "low"} <strong>{state.next.level.toFixed(2)} m</strong>{" "}
-            at {time(state.next.time)}{" "}
-            <span className="muted">
-              (in {Math.floor(untilNext / 60)}h {untilNext % 60}m)
+      <main className="content">
+        <header className="topbar">
+          <button className="picker" onClick={() => setListOpen(true)}>
+            <span className="picker-label">Station</span>
+            <span className="picker-name">{name.primary}</span>
+            <span className="picker-caret">▾</span>
+          </button>
+        </header>
+
+        <section className="panel hero">
+          <div className="place">
+            <h1>{name.primary}</h1>
+            {name.context && <p className="context">{name.context}</p>}
+            {match && (
+              <p className={`match ${match.quality}`}>
+                {match.distanceKm.toFixed(1)} km away · {QUALITY_COPY[match.quality]}
+              </p>
+            )}
+          </div>
+
+          <p className="reading">
+            <span className={state.rising ? "dir rising" : "dir falling"}>
+              {state.rising ? "▲ Rising" : "▼ Falling"}
+            </span>
+            <span className="value">
+              {state.level.toFixed(2)}
+              <abbr>m</abbr>
             </span>
           </p>
-        )}
-      </section>
 
-      <TideChart state={state} now={now} timezone={station.timezone} />
+          {state.next && untilNext !== null && (
+            <p className="next">
+              Next {state.next.high ? "high" : "low"} of{" "}
+              <strong>{state.next.level.toFixed(2)} m</strong> at {time(state.next.time)}
+              <span className="muted">
+                {" "}
+                · in {Math.floor(untilNext / 60)}h {untilNext % 60}m
+              </span>
+            </p>
+          )}
+        </section>
 
-      <section className="table">
-        <h2>Today</h2>
-        {today.map((extreme) => (
-          <div className="row" key={extreme.time.toISOString()}>
-            <span className={extreme.high ? "tag high" : "tag low"}>
-              {extreme.high ? "High" : "Low"}
-            </span>
-            <span className="when">{time(extreme.time)}</span>
-            <span className="level">{extreme.level.toFixed(2)} m</span>
-          </div>
-        ))}
-        <p className="muted datum">
-          Heights above {station.chartDatum} · times in the station's local time
-        </p>
-      </section>
+        <section className="panel chart-panel">
+          <TideChart state={state} now={now} timezone={station.timezone} />
+        </section>
 
-      <footer>
-        <p>
-          Astronomical tide prediction only — <strong>not for navigation</strong>.
-        </p>
-        <p className="muted">
-          {stations.length} public-domain stations from{" "}
-          <a href="https://github.com/openwatersio/tide-database">NOAA via tide-database</a>,
-          computed on your device. Canadian stations are not bundled: their published
-          harmonics carry a licence that does not permit redistribution, so BC water is
-          coming from CHS online, marked as lower confidence.
-        </p>
-        <p className="muted">
-          <a href="https://github.com/sailingnaturali/slackwater-web">Source</a> · GPL-3.0 ·{" "}
-          <a href="https://sailingnaturali.com">Sailing Naturali</a>
-        </p>
-      </footer>
-    </main>
+        <EventList station={station} now={now} />
+
+        <footer>
+          <p className="warn">
+            Astronomical prediction only — <strong>not for navigation</strong>.
+          </p>
+          <p className="muted">
+            Heights above {station.chartDatum}, times local to the station. {stations.length}{" "}
+            public-domain stations from{" "}
+            <a href="https://github.com/openwatersio/tide-database">NOAA via tide-database</a>,
+            computed on your device. Canadian stations are not bundled — their published
+            harmonics carry a licence that does not permit redistribution, so BC water is
+            coming from CHS online at lower confidence.
+          </p>
+          <p className="muted">
+            <a href="https://github.com/sailingnaturali/slackwater-web">Source</a> · GPL-3.0 ·{" "}
+            <a href="https://sailingnaturali.com">Sailing Naturali</a>
+          </p>
+        </footer>
+      </main>
+    </div>
   );
 }

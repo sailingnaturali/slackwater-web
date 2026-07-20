@@ -72,6 +72,32 @@ export function predict(station: Station, now: Date): TideState {
   return { level, rising: soon > level, next, extremes, timeline };
 }
 
+/**
+ * Extremes across `days` starting from the local day containing `from`.
+ *
+ * Separate from `predict` because the schedule pages independently of the hero:
+ * you can read next Saturday's tides without moving "now".
+ */
+export function predictRange(station: Station, from: Date, days: number): Extreme[] {
+  const predictor = predictorFor(station);
+  // A day either side so a turn near local midnight is not clipped by UTC edges.
+  const start = new Date(from.getTime() - 24 * HOUR);
+  const end = new Date(from.getTime() + (days + 1) * 24 * HOUR);
+  const wanted = new Set(
+    Array.from({ length: days }, (_, i) =>
+      localDay(new Date(from.getTime() + i * 24 * HOUR), station.timezone),
+    ),
+  );
+  return predictor
+    .getExtremesPrediction({ start, end })
+    .map((extreme) => ({
+      time: new Date(extreme.time),
+      level: extreme.level,
+      high: extreme.high,
+    }))
+    .filter((extreme) => wanted.has(localDay(extreme.time, station.timezone)));
+}
+
 /** Extremes falling on the same local day as `day`, for the day's table. */
 export function extremesOn(state: TideState, day: Date, timezone: string): Extreme[] {
   const target = localDay(day, timezone);
