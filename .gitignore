@@ -1,0 +1,6 @@
+node_modules/
+dist/
+dist-ssr/
+src/data/stations.json
+.DS_Store
+*.local

@@ -1,0 +1,42 @@
+{
+  "name": "slackwater-web",
+  "version": "0.1.0",
+  "description": "Offline tide predictions for the Salish Sea",
+  "main": "index.js",
+  "scripts": {
+    "build:stations": "node scripts/build-stations.mjs",
+    "dev": "npm run build:stations && vite",
+    "build": "npm run build:stations && tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sailingnaturali/slackwater-web.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/sailingnaturali/slackwater-web/issues"
+  },
+  "homepage": "https://github.com/sailingnaturali/slackwater-web#readme",
+  "dependencies": {
+    "@neaps/tide-predictor": "^0.10.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@neaps/tide-database": "^0.8.20260719",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10"
+  },
+  "private": true
+}

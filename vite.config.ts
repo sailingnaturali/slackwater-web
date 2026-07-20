@@ -1,0 +1,34 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
+
+export default defineConfig({
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.svg"],
+      manifest: {
+        name: "Slackwater — Offline Tides",
+        short_name: "Slackwater",
+        description:
+          "Tide predictions for the Salish Sea, computed on your device. Works with no signal.",
+        theme_color: "#0b1a2b",
+        background_color: "#0b1a2b",
+        display: "standalone",
+        orientation: "portrait",
+        start_url: "/",
+        icons: [
+          { src: "icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+      },
+      workbox: {
+        // The station data and the engine are the whole product offline, so they
+        // are precached rather than fetched on demand.
+        globPatterns: ["**/*.{js,css,html,svg,png,json}"],
+      },
+    }),
+  ],
+});
