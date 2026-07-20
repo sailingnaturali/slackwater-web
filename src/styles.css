@@ -1,49 +1,81 @@
-/* Latin subsets only. The default entrypoints also pull Cyrillic, Greek and
-   Vietnamese, and every one of those files would be precached for offline use
-   by an app that never renders them. */
-@import "@fontsource-variable/ibm-plex-sans/wght.css";
-@import "@fontsource/ibm-plex-mono/latin-400.css";
-@import "@fontsource/ibm-plex-mono/latin-600.css";
+@import "@fontsource-variable/fraunces/wght.css";
+@import "@fontsource-variable/geist/wght.css";
+@import "@fontsource-variable/geist-mono/wght.css";
 
 /*
- * Slackwater — instrument, not app.
+ * Slackwater — the Sailing Naturali house style, applied to an instrument.
  *
- * This gets read at 05:00 in a cockpit, often one-handed, often wet. So the
- * aesthetic is a chart table: brand navy, tabular figures, no decoration that
- * costs legibility. Spec §1 is explicit that we do not compete on polish — we
- * compete on being right, and on being there with no signal.
+ * Type, palette and idiom come from the design-system project (the same one
+ * behind Itineraries / RouteMap / SiteFooter): Fraunces display, Geist body,
+ * Geist Mono eyebrows in uppercase with wide tracking, navy and forest green on
+ * warm paper, hairline borders and flat bands doing the separation — no card
+ * shadows. The `sn-hero` water ramp and `sn-rule` green hairline are lifted
+ * verbatim from web/src/styles.css so the two surfaces stay one brand.
  *
- * Fonts are self-hosted (@fontsource) rather than fetched from a CDN. A webfont
- * request would be a network dependency in an app whose whole promise is not
- * needing one; the service worker precaches these with everything else.
+ * Fonts are self-hosted rather than @import-ed from Google as the web repo does
+ * — a webfont request would be a network dependency in an app whose entire
+ * promise is not needing one, and the service worker precaches these.
  *
- * Palette is the Sailing Naturali brand (planning/brand-palette.md) — the
- * Sky → Steel → Harbor → Deep Water → Navy ramp is literally water.
+ * The one deliberate departure: a dark scheme. This gets read at 05:00 in a
+ * cockpit where a paper-white screen destroys night vision, so the dark end of
+ * the same water ramp takes over when the device asks for it. Same palette,
+ * same type, inverted ground.
  */
 
 :root {
-  --navy: #002448;
-  --navy-deep: #00183c;
-  --deep-water: #083058;
-  --harbor: #184870;
-  --steel: #5888a8;
-  --sky: #c0d8e4;
-  --green: #58a058;
-  --leaf: #88b868;
+  /* core */
+  --sn-navy: #002448;
+  --sn-navy-deep: #00183c;
+  --sn-green: #006030;
+  --sn-green-mid: #58a058;
+  --sn-leaf: #88b868;
+  /* water */
+  --sn-steel: #5888a8;
+  --sn-harbor: #184870;
+  --sn-deep: #083058;
+  /* neutrals */
+  --sn-sky: #c0d8e4;
+  --sn-mist: #d8e4e4;
+  --sn-foam: #e4f0e4;
+  --sn-cloud: #f0f0f0;
+  --sn-paper: #fcfcfc;
 
-  --bg: var(--navy-deep);
-  --panel: #06203f;
-  --line: #14375c;
-  --ink: #eaf2f7;
-  --muted: var(--steel);
+  --font-display: "Fraunces Variable", ui-serif, Georgia, serif;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", monospace;
 
-  /* Rising green / falling blue mirrors the prototype's flood-green, ebb-blue.
-     Arrows and labels carry the same meaning, so colour is never the only cue. */
-  --rising: var(--leaf);
-  --falling: #7fb4d8;
+  /* Semantic layer — the only things components reference, so the dark scheme
+     is one block of overrides rather than a second stylesheet. */
+  --ground: var(--sn-paper);
+  --ink: var(--sn-navy);
+  --ink-soft: rgba(0, 36, 72, 0.72);
+  --ink-faint: rgba(0, 36, 72, 0.5);
+  --surface: #ffffff;
+  --hairline: var(--sn-cloud);
+  --accent: var(--sn-green);
+  --rising: var(--sn-green);
+  --falling: var(--sn-harbor);
+  --curve: var(--sn-harbor);
+  --selected: var(--sn-foam);
 
-  --radius: 14px;
-  color-scheme: dark;
+  --radius: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: var(--sn-navy-deep);
+    --ink: #eaf2f7;
+    --ink-soft: rgba(234, 242, 247, 0.78);
+    --ink-faint: var(--sn-steel);
+    --surface: #06203f;
+    --hairline: #14375c;
+    --accent: var(--sn-leaf);
+    --rising: var(--sn-leaf);
+    --falling: #7fb4d8;
+    --curve: var(--sn-sky);
+    --selected: var(--sn-harbor);
+    color-scheme: dark;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -52,93 +84,162 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background:
-    radial-gradient(120% 80% at 50% -10%, var(--deep-water) 0%, transparent 60%),
-    var(--bg);
+  background: var(--ground);
   color: var(--ink);
-  font-family: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
+  font-weight: 400;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0;
 }
 
 button, input { font: inherit; color: inherit; }
-a { color: var(--sky); text-underline-offset: 2px; }
-abbr { text-decoration: none; font-size: 0.5em; margin-left: 0.15em; color: var(--muted); }
+a { color: var(--accent); text-underline-offset: 2px; }
 
-:focus-visible { outline: 2px solid var(--leaf); outline-offset: 2px; }
+::selection { background: var(--sn-leaf); color: var(--sn-navy); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+abbr { text-decoration: none; font-size: 0.46em; margin-left: 0.18em; color: var(--ink-faint); }
+
+/* The eyebrow: Geist Mono, uppercase, wide tracking. The house signature. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0;
+}
+
+/* The green hairline from the badge. */
+.rule {
+  height: 2px;
+  width: 2.5rem;
+  background: var(--sn-leaf);
+  border: 0;
+  margin: 0 0 1.5rem;
+}
+
+@keyframes sn-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise {
+  opacity: 0;
+  animation: sn-rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
 
 /* ---------------------------------------------------------------- first run */
 
+/* The water ramp, verbatim from the design system: sky → steel → harbor →
+   deep → navy, with the leaf glow top-right. */
 .gate {
   min-height: 100%;
   display: grid;
   place-items: center;
+  position: relative;
   padding: 2rem 1.5rem max(2rem, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(120% 80% at 78% 8%, rgba(136, 184, 104, 0.16), transparent 55%),
+    linear-gradient(
+      176deg,
+      var(--sn-sky) 0%,
+      var(--sn-steel) 32%,
+      var(--sn-harbor) 60%,
+      var(--sn-deep) 82%,
+      var(--sn-navy-deep) 100%
+    );
+  color: var(--sn-paper);
 }
 
-.gate-inner { max-width: 30rem; }
-
-.gate-mark,
-.mark {
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 0.78rem;
-  letter-spacing: 0.34em;
-  text-transform: uppercase;
-  color: var(--steel);
-  margin: 0 0 2rem;
+/* Faint grain so the gradient reads as water, not a CSS slab. */
+.gate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
 }
+
+.gate-inner { max-width: 32rem; position: relative; z-index: 1; }
+.gate .eyebrow { color: var(--sn-sky); }
 
 .gate h1 {
-  font-size: clamp(1.9rem, 6vw, 2.6rem);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  font-weight: 600;
-  margin: 0 0 1rem;
+  font-size: clamp(2.1rem, 6.5vw, 3.1rem);
+  margin: 1.25rem 0 1rem;
   text-wrap: balance;
 }
 
-.gate-body { color: var(--sky); margin: 0 0 2rem; text-wrap: pretty; }
-.gate-actions { display: flex; flex-direction: column; gap: 0.75rem; }
+.gate-body {
+  color: rgba(252, 252, 252, 0.85);
+  margin: 0 0 2rem;
+  max-width: 30rem;
+  text-wrap: pretty;
+}
+
+.gate-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
 
 button.primary,
 button.ghost {
-  border-radius: var(--radius);
-  padding: 0.9rem 1.25rem;
+  border-radius: 999px;
+  padding: 0.8rem 1.6rem;
+  font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 button.primary {
-  background: var(--green);
-  border: 1px solid var(--green);
-  color: #04140a;
-  font-weight: 600;
+  background: var(--sn-leaf);
+  border: 1px solid var(--sn-leaf);
+  color: var(--sn-navy);
 }
-button.primary:hover:not(:disabled) { background: var(--leaf); border-color: var(--leaf); }
-button.primary:disabled { opacity: 0.6; cursor: progress; }
+button.primary:hover:not(:disabled) { background: var(--sn-paper); border-color: var(--sn-paper); }
+button.primary:disabled { opacity: 0.65; cursor: progress; }
 
-button.ghost { background: transparent; border: 1px solid var(--line); color: var(--sky); }
-button.ghost:hover { border-color: var(--steel); }
+button.ghost {
+  background: transparent;
+  border: 1px solid rgba(252, 252, 252, 0.4);
+  color: var(--sn-paper);
+}
+button.ghost:hover { border-color: var(--sn-paper); }
 
-.gate-fine { color: var(--muted); font-size: 0.85rem; margin: 1.75rem 0 0; }
+.gate-fine {
+  color: rgba(252, 252, 252, 0.62);
+  font-size: 0.85rem;
+  margin: 2rem 0 0;
+}
 
 /* ------------------------------------------------------------------- shell */
 
 .shell { min-height: 100%; }
 
 .content {
-  padding: 1rem 1rem max(2rem, env(safe-area-inset-bottom));
+  padding: 1.25rem 1.25rem max(2rem, env(safe-area-inset-bottom));
   display: grid;
-  gap: 1rem;
+  gap: 1.25rem;
   align-content: start;
 }
 
+/* Hairline borders and flat ground — no shadows anywhere, per the house rule. */
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius);
-  padding: 1.25rem;
+  padding: 1.5rem;
 }
 
 /* ------------------------------------------------------------------ topbar */
@@ -148,84 +249,76 @@ button.ghost:hover { border-color: var(--steel); }
 .picker {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
+  gap: 0.7rem;
   width: 100%;
   background: transparent;
-  border: 1px solid var(--line);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius);
-  padding: 0.7rem 1rem;
+  padding: 0.75rem 1rem;
   cursor: pointer;
   text-align: left;
 }
-.picker:hover { border-color: var(--steel); }
-.picker-label {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.picker-name { font-weight: 600; flex: 1; }
-.picker-caret { color: var(--steel); }
+.picker:hover { border-color: var(--sn-steel); }
+.picker-name { font-weight: 500; flex: 1; }
+.picker-caret { color: var(--ink-faint); }
 
 /* -------------------------------------------------------------------- hero */
 
-.place h1 {
-  font-size: clamp(1.35rem, 4vw, 1.8rem);
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  margin: 0;
-  text-wrap: balance;
-}
-.place .context { color: var(--muted); margin: 0.15rem 0 0; font-size: 0.92rem; }
+.place h1 { font-size: clamp(1.6rem, 4.5vw, 2.15rem); }
+.place .context { color: var(--ink-faint); margin: 0.35rem 0 0; font-size: 0.95rem; }
 
-.match { font-size: 0.85rem; margin: 0.5rem 0 0; color: var(--muted); }
-.match.approximate, .match.nearest { color: var(--leaf); }
+.match { font-size: 0.85rem; margin: 0.6rem 0 0; color: var(--ink-faint); }
+.match.approximate, .match.nearest { color: var(--sn-green); }
+@media (prefers-color-scheme: dark) {
+  .match.approximate, .match.nearest { color: var(--sn-leaf); }
+}
 
 .reading {
   display: flex;
   align-items: baseline;
-  gap: 0.9rem;
+  gap: 1rem;
   flex-wrap: wrap;
-  margin: 1.5rem 0 0.35rem;
+  margin: 1.75rem 0 0.5rem;
 }
+
 .dir {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.8rem;
-  letter-spacing: 0.12em;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  font-weight: 600;
 }
 .dir.rising { color: var(--rising); }
 .dir.falling { color: var(--falling); }
 
+/* The one number the app exists to show, in the display serif. */
 .value {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-display);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(3rem, 13vw, 4.25rem);
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: clamp(3.2rem, 14vw, 4.75rem);
+  line-height: 0.95;
+  letter-spacing: -0.035em;
 }
 
-.next { margin: 0; color: var(--sky); }
-.muted { color: var(--muted); }
+.next { margin: 0; color: var(--ink-soft); }
+.muted { color: var(--ink-faint); }
 
 /* ------------------------------------------------------------------- chart */
 
-.chart-panel { padding: 1rem 0.75rem 0.5rem; }
+.chart-panel { padding: 1.25rem 1rem 0.75rem; }
 .chart { width: 100%; height: auto; display: block; }
-.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .grid { stroke: var(--hairline); stroke-width: 1; }
 .chart .axis {
-  fill: var(--muted);
+  fill: var(--ink-faint);
   font-size: 11px;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-mono);
 }
-.chart .curve { fill: none; stroke: var(--sky); stroke-width: 2.5; stroke-linejoin: round; }
+.chart .curve { fill: none; stroke: var(--curve); stroke-width: 2.25; stroke-linejoin: round; }
 .chart .area { stroke: none; }
 .chart .dot.high { fill: var(--rising); }
 .chart .dot.low { fill: var(--falling); }
-.chart .nowline { stroke: var(--ink); stroke-width: 1.5; opacity: 0.5; }
+.chart .nowline { stroke: var(--ink); stroke-width: 1.25; opacity: 0.4; }
 .chart .nowdot { fill: var(--ink); }
 
 /* ------------------------------------------------------------------ events */
@@ -235,68 +328,69 @@ button.ghost:hover { border-color: var(--steel); }
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
-.events h2 { font-size: 1rem; font-weight: 600; margin: 0; }
-.events-date { color: var(--muted); font-size: 0.85rem; margin: 0.1rem 0 0; }
+.events h2 { font-size: 1.35rem; }
+.events-date { color: var(--ink-faint); font-size: 0.85rem; margin: 0.3rem 0 0; }
 
 .pager { display: flex; gap: 0.35rem; }
 .pager button {
   background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
   min-width: 2.4rem;
   min-height: 2.4rem;
-  padding: 0 0.6rem;
+  padding: 0 0.7rem;
   cursor: pointer;
-  color: var(--sky);
+  color: var(--ink-soft);
 }
-.pager button:hover:not(:disabled) { border-color: var(--steel); }
-.pager button:disabled { opacity: 0.4; cursor: default; }
-.pager .today { font-size: 0.82rem; }
+.pager button:hover:not(:disabled) { border-color: var(--sn-steel); color: var(--ink); }
+.pager button:disabled { opacity: 0.35; cursor: default; }
+.pager .today { font-size: 0.8rem; }
 
 .event-rows { list-style: none; margin: 0; padding: 0; }
 
 .event {
   display: grid;
-  grid-template-columns: 3px 3.6rem 1fr auto;
+  grid-template-columns: 2px 3.4rem 1fr auto;
   align-items: center;
-  gap: 0.85rem;
-  padding: 0.7rem 0;
-  border-top: 1px solid var(--line);
+  gap: 0.9rem;
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--hairline);
 }
 .event:first-child { border-top: none; }
 .event.past {
   /* Dimmed, not hidden: "when was low this morning" is a real question, and a
      past turn still tells you which way the water has been going. */
-  opacity: 0.62;
+  opacity: 0.55;
 }
-.event.empty { display: block; color: var(--muted); }
+.event.empty { display: block; color: var(--ink-faint); }
 
-.swatch { height: 1.6rem; border-radius: 2px; }
+.swatch { height: 1.7rem; border-radius: 1px; }
 .swatch.high { background: var(--rising); }
 .swatch.low { background: var(--falling); }
 
 .event .kind {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ink-faint);
 }
 .event time,
 .event .height {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 .event time { font-size: 1.05rem; }
-.event .height { font-weight: 600; font-size: 1.05rem; }
+.event .height { font-weight: 500; font-size: 1.05rem; }
 
 /* ---------------------------------------------------------------- stations */
 
 .sidebar {
-  background: var(--navy);
-  border-right: 1px solid var(--line);
+  background: var(--ground);
+  border-right: 1px solid var(--hairline);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -306,37 +400,36 @@ button.ghost:hover { border-color: var(--steel); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.15rem 1rem 0.5rem;
+  padding: 1.4rem 1.25rem 0.75rem;
 }
-.sidebar-head .mark { margin: 0; }
 
 .close {
   background: transparent;
   border: none;
-  color: var(--steel);
-  font-size: 1.1rem;
+  color: var(--ink-faint);
+  font-size: 1.05rem;
   cursor: pointer;
   padding: 0.25rem 0.5rem;
 }
 
-.search { padding: 0.75rem 1rem; }
+.search { padding: 0.5rem 1.25rem 0.75rem; }
 .search input {
   width: 100%;
-  background: var(--navy-deep);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.6rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.6rem 1rem;
 }
-.search input::placeholder { color: var(--muted); }
+.search input::placeholder { color: var(--ink-faint); }
 
 .station-rows {
   list-style: none;
   margin: 0;
-  padding: 0 0.6rem 1.5rem;
+  padding: 0 0.75rem 2rem;
   overflow-y: auto;
   flex: 1;
 }
-.station-rows .none { color: var(--muted); padding: 1rem 0.4rem; font-size: 0.9rem; }
+.station-rows .none { color: var(--ink-faint); padding: 1rem 0.5rem; font-size: 0.9rem; }
 
 button.station {
   display: flex;
@@ -346,31 +439,37 @@ button.station {
   background: transparent;
   border: none;
   border-radius: 10px;
-  padding: 0.6rem 0.65rem;
+  padding: 0.65rem 0.75rem;
   cursor: pointer;
   text-align: left;
 }
-button.station:hover { background: #0d2b4d; }
-button.station.current { background: var(--harbor); }
+button.station:hover { background: var(--sn-foam); }
+@media (prefers-color-scheme: dark) {
+  button.station:hover { background: #0d2b4d; }
+}
+button.station.current { background: var(--selected); }
+@media (prefers-color-scheme: dark) {
+  button.station.current { color: var(--sn-paper); }
+}
 
 .station-name { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .station-name .primary { font-weight: 500; }
-.station-name .context { font-size: 0.8rem; color: var(--muted); }
-button.station.current .context { color: var(--sky); }
+.station-name .context { font-size: 0.8rem; color: var(--ink-faint); }
+button.station.current .context { color: inherit; opacity: 0.7; }
 
 .km {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 0.78rem;
-  color: var(--muted);
+  font-size: 0.75rem;
+  color: var(--ink-faint);
   white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------ footer */
 
-footer { font-size: 0.82rem; padding: 0 0.25rem; }
-footer p { margin: 0.45rem 0; }
-footer .warn { color: var(--sky); }
+footer { font-size: 0.82rem; padding: 0 0.25rem; color: var(--ink-faint); }
+footer p { margin: 0.5rem 0; }
+footer .warn { color: var(--ink-soft); }
 
 /* ------------------------------------------------------------- breakpoints */
 
@@ -387,8 +486,8 @@ footer .warn { color: var(--sky); }
     padding-top: env(safe-area-inset-top);
   }
   .sidebar.open { transform: none; }
-  .scrim { position: fixed; inset: 0; background: rgba(0, 12, 24, 0.6); z-index: 1; }
-  .content { padding-top: max(1rem, env(safe-area-inset-top)); }
+  .scrim { position: fixed; inset: 0; background: rgba(0, 24, 60, 0.45); z-index: 1; }
+  .content { padding-top: max(1.25rem, env(safe-area-inset-top)); }
 }
 
 /* Tablet and up: the list earns permanent space, so the picker button that
@@ -396,13 +495,13 @@ footer .warn { color: var(--sky); }
 @media (min-width: 62rem) {
   .shell {
     display: grid;
-    grid-template-columns: 19rem 1fr;
+    grid-template-columns: 20rem 1fr;
     height: 100%;
   }
   .sidebar { position: sticky; top: 0; height: 100vh; }
   .close, .topbar, .scrim { display: none; }
   .content {
-    padding: 1.75rem;
+    padding: 2.5rem;
     max-width: 64rem;
     overflow-y: auto;
     height: 100vh;
@@ -413,7 +512,7 @@ footer .warn { color: var(--sky); }
    day is legible without scrolling. */
 @media (min-width: 82rem) {
   .content {
-    max-width: 78rem;
+    max-width: 80rem;
     grid-template-columns: minmax(0, 1.35fr) minmax(21rem, 1fr);
     grid-template-areas:
       "hero   events"
@@ -427,5 +526,5 @@ footer .warn { color: var(--sky); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
+  *, .rise { animation: none !important; transition: none !important; opacity: 1 !important; }
 }

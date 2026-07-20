@@ -77,7 +77,7 @@ export function App() {
     <div className="shell">
       <aside className={listOpen ? "sidebar open" : "sidebar"}>
         <div className="sidebar-head">
-          <p className="mark">Slackwater</p>
+          <p className="eyebrow">Slackwater</p>
           <button className="close" onClick={() => setListOpen(false)} aria-label="Close list">
             ✕
           </button>
@@ -90,13 +90,13 @@ export function App() {
       <main className="content">
         <header className="topbar">
           <button className="picker" onClick={() => setListOpen(true)}>
-            <span className="picker-label">Station</span>
+            <span className="eyebrow">Station</span>
             <span className="picker-name">{name.primary}</span>
             <span className="picker-caret">▾</span>
           </button>
         </header>
 
-        <section className="panel hero">
+        <section className="panel hero rise">
           <div className="place">
             <h1>{name.primary}</h1>
             {name.context && <p className="context">{name.context}</p>}

@@ -23,8 +23,9 @@
   },
   "homepage": "https://github.com/sailingnaturali/slackwater-web#readme",
   "dependencies": {
-    "@fontsource-variable/ibm-plex-sans": "^5.3.0",
-    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
     "@neaps/tide-predictor": "^0.10.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

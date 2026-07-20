@@ -38,8 +38,9 @@ export function LocationGate({ onResolve }: { onResolve: (result: GateResult) =>
 
   return (
     <div className="gate">
-      <div className="gate-inner">
-        <p className="gate-mark">Slackwater</p>
+      <div className="gate-inner rise">
+        <p className="eyebrow">Slackwater · Sailing Naturali</p>
+        <hr className="rule" />
         <h1>Tides that work with no signal.</h1>
         <p className="gate-body">
           Predictions are computed on your device, so they keep working at anchor with no

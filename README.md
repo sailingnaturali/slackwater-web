@@ -32,6 +32,22 @@ So Canadian coverage is coming from CHS online instead, marked at lower confiden
 licence filter runs in CI on every build rather than once on a laptop, and there is a test
 asserting nothing else got in.
 
+## Design
+
+Type, palette and idiom come from the Sailing Naturali design system — Fraunces display,
+Geist body, Geist Mono eyebrows in uppercase with wide tracking, navy and forest green on
+warm paper, hairline borders and flat bands rather than card shadows. The water ramp behind
+the first-run screen and the green hairline rule are lifted from `web/src/styles.css` so the
+charter site and this app read as one brand.
+
+Two deliberate departures:
+
+- **Fonts are self-hosted**, where the web repo `@import`s them from Google. A webfont
+  request would be a network dependency in an app whose promise is not needing one.
+- **There is a dark scheme.** The house style is paper-white; this gets read at 05:00 in a
+  cockpit, where that destroys night vision. Dark mode uses the dark end of the same water
+  ramp — same palette, same type, inverted ground — and follows the device setting.
+
 ## Station match quality
 
 Ask for tides at a place rather than a station and something has to decide which station

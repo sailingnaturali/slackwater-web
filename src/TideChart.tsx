@@ -58,9 +58,11 @@ export function TideChart({
       }.`}
     >
       <defs>
+        {/* Water, not accent: the fill under the curve is the sea, so it takes
+            the top of the brand's water ramp rather than the green. */}
         <linearGradient id="fill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
+          <stop offset="0%" stopColor="var(--sn-steel)" stopOpacity="0.38" />
+          <stop offset="100%" stopColor="var(--sn-sky)" stopOpacity="0.04" />
         </linearGradient>
       </defs>
 
