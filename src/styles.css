@@ -1,6 +1,9 @@
-@import "@fontsource-variable/ibm-plex-sans";
-@import "@fontsource/ibm-plex-mono/400.css";
-@import "@fontsource/ibm-plex-mono/600.css";
+/* Latin subsets only. The default entrypoints also pull Cyrillic, Greek and
+   Vietnamese, and every one of those files would be precached for offline use
+   by an app that never renders them. */
+@import "@fontsource-variable/ibm-plex-sans/wght.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-600.css";
 
 /*
  * Slackwater — instrument, not app.
