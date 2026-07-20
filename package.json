@@ -8,7 +8,7 @@
     "dev": "npm run build:stations && vite",
     "build": "npm run build:stations && tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "npm run build:stations && vitest run"
   },
   "repository": {
     "type": "git",
