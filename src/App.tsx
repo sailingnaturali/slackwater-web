@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   matchStation,
+  matchQuality,
+  m2SpreadMinutes,
   distanceKm,
   predict,
   resolvedStations,
@@ -18,6 +20,7 @@ import { Search } from "./SearchScreen";
 import { Settings } from "./Settings";
 import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
+import { stationsNear } from "./place";
 import { useLocation } from "./useLocation";
 import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
 import { loadSaved, star, unstar, visit, rememberLocation, type Saved } from "./savedStations";
@@ -125,6 +128,24 @@ export function App() {
   }
 
   const state = useMemo(() => predict(station, now), [station, now]);
+
+  /**
+   * The hero's distance and quality must describe the same thing the chooser
+   * below it describes. Both ground on the named place: grading against raw
+   * GPS while ranking against the place put two different numbers for one
+   * station side by side on the same screen.
+   */
+  const heroMatch = useMemo(() => {
+    if (live.place) {
+      const { place, station: matched } = live.place;
+      const neighbours = stationsNear(place, 3);
+      return {
+        km: distanceKm(place, matched),
+        quality: matchQuality(distanceKm(place, matched), m2SpreadMinutes(neighbours)),
+      };
+    }
+    return match ? { km: match.distanceKm, quality: match.quality } : null;
+  }, [live.place, match]);
   const resolved = useMemo(
     () => resolvedStations.find((s) => s.id === station.id)!,
     [station],
@@ -238,10 +259,10 @@ export function App() {
           <div className="place">
             <h1>{resolved.name}</h1>
             {resolved.context && <p className="context">{resolved.context}</p>}
-            {match && (
-              <p className={`match ${match.quality}`}>
-                {formatDistance(match.distanceKm, units)} {distanceUnit(units)} away ·{" "}
-                {QUALITY_COPY[match.quality]}
+            {heroMatch && (
+              <p className={`match ${heroMatch.quality}`}>
+                {formatDistance(heroMatch.km, units)} {distanceUnit(units)} away ·{" "}
+                {QUALITY_COPY[heroMatch.quality]}
               </p>
             )}
             {match && live.place && (
