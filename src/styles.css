@@ -16,10 +16,9 @@
  * — a webfont request would be a network dependency in an app whose entire
  * promise is not needing one, and the service worker precaches these.
  *
- * The one deliberate departure: a dark scheme. This gets read at 05:00 in a
- * cockpit where a paper-white screen destroys night vision, so the dark end of
- * the same water ramp takes over when the device asks for it. Same palette,
- * same type, inverted ground.
+ * Dark is the ground, full stop. This gets read at 05:00 in a cockpit where a
+ * paper-white screen destroys night vision, so there is no light scheme to
+ * fall back to — the device's preference is ignored.
  */
 
 :root {
@@ -44,38 +43,22 @@
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", monospace;
 
-  /* Semantic layer — the only things components reference, so the dark scheme
-     is one block of overrides rather than a second stylesheet. */
-  --ground: var(--sn-paper);
-  --ink: var(--sn-navy);
-  --ink-soft: rgba(0, 36, 72, 0.72);
-  --ink-faint: rgba(0, 36, 72, 0.5);
-  --surface: #ffffff;
-  --hairline: var(--sn-cloud);
-  --accent: var(--sn-green);
-  --rising: var(--sn-green);
-  --falling: var(--sn-harbor);
-  --curve: var(--sn-harbor);
-  --selected: var(--sn-foam);
+  /* Semantic layer — the only things components reference. */
+  --ground: var(--sn-navy-deep);
+  --ink: #eaf2f7;
+  --ink-soft: rgba(234, 242, 247, 0.78);
+  --ink-faint: var(--sn-steel);
+  --surface: #06203f;
+  --hairline: #14375c;
+  --accent: var(--sn-leaf);
+  --rising: var(--sn-leaf);
+  --falling: #7fb4d8;
+  --curve: var(--sn-sky);
+  --selected: var(--sn-harbor);
+  --warn: #e8a33d;
 
   --radius: 12px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: var(--sn-navy-deep);
-    --ink: #eaf2f7;
-    --ink-soft: rgba(234, 242, 247, 0.78);
-    --ink-faint: var(--sn-steel);
-    --surface: #06203f;
-    --hairline: #14375c;
-    --accent: var(--sn-leaf);
-    --rising: var(--sn-leaf);
-    --falling: #7fb4d8;
-    --curve: var(--sn-sky);
-    --selected: var(--sn-harbor);
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -268,10 +251,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .place .context { color: var(--ink-faint); margin: 0.35rem 0 0; font-size: 0.95rem; }
 
 .match { font-size: 0.85rem; margin: 0.6rem 0 0; color: var(--ink-faint); }
-.match.approximate, .match.nearest { color: var(--sn-green); }
-@media (prefers-color-scheme: dark) {
-  .match.approximate, .match.nearest { color: var(--sn-leaf); }
-}
+.match.approximate, .match.nearest { color: var(--sn-leaf); }
 
 .reading {
   display: flex;
@@ -443,14 +423,8 @@ button.station {
   cursor: pointer;
   text-align: left;
 }
-button.station:hover { background: var(--sn-foam); }
-@media (prefers-color-scheme: dark) {
-  button.station:hover { background: #0d2b4d; }
-}
-button.station.current { background: var(--selected); }
-@media (prefers-color-scheme: dark) {
-  button.station.current { color: var(--sn-paper); }
-}
+button.station:hover { background: #0d2b4d; }
+button.station.current { background: var(--selected); color: var(--sn-paper); }
 
 .station-name { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .station-name .primary { font-weight: 500; }
