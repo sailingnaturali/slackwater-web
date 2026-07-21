@@ -1,4 +1,5 @@
 import { createTidePredictor } from "@neaps/tide-predictor";
+import { createBundledResolver } from "@sailingnaturali/station-corrections";
 import stationData from "./data/stations.json";
 
 export interface Station {
@@ -16,6 +17,39 @@ export interface Station {
 }
 
 export const stations = stationData as Station[];
+
+export interface ResolvedStation extends Station {
+  /** Display name, cleaned and curated. */
+  name: string;
+  /** The water body, island or characteristic that distinguishes it. */
+  context: string;
+  /** Canonical URL segment. */
+  slug: string;
+  /** Alternate names and search terms this station is known by. */
+  aliases: string[];
+}
+
+const resolve = createBundledResolver();
+
+/**
+ * Stations with naming resolved once at module load.
+ *
+ * Naming lives in @sailingnaturali/station-corrections so the app, iOS and the
+ * MCPs all say the same thing. Position comes from the resolver too, so a
+ * corrected station lands where the correction says.
+ */
+export const resolvedStations: ResolvedStation[] = stations.map((station) => {
+  const r = resolve(station);
+  return {
+    ...station,
+    name: r.name,
+    context: r.context,
+    slug: r.slug,
+    aliases: r.aliases,
+    latitude: r.latitude,
+    longitude: r.longitude,
+  };
+});
 
 export interface Extreme {
   time: Date;

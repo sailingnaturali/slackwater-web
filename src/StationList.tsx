@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import { distanceKm, stations, type Station } from "./tides";
-import { stationName } from "./stationName";
+import { distanceKm, resolvedStations, type Station } from "./tides";
 
 /**
  * The station list — the fallback when location is declined, and the switcher
@@ -21,21 +20,24 @@ export function StationList({
   const [query, setQuery] = useState("");
 
   const listed = useMemo(() => {
-    const named = stations.map((station) => ({
+    const named = resolvedStations.map((station) => ({
       station,
-      name: stationName(station.name),
       km: origin ? distanceKm(origin, station) : null,
     }));
 
     const needle = query.trim().toLowerCase();
     const matched = needle
-      ? named.filter((entry) => entry.name.full.toLowerCase().includes(needle))
+      ? named.filter(
+          (entry) =>
+            entry.station.name.toLowerCase().includes(needle) ||
+            entry.station.context.toLowerCase().includes(needle),
+        )
       : named;
 
     // Nearest-first is the useful order when we know where you are; otherwise
     // alphabetical, because a distance from nowhere is noise.
     return matched.sort((a, b) =>
-      a.km != null && b.km != null ? a.km - b.km : a.name.primary.localeCompare(b.name.primary),
+      a.km != null && b.km != null ? a.km - b.km : a.station.name.localeCompare(b.station.name),
     );
   }, [query, origin]);
 
@@ -52,7 +54,7 @@ export function StationList({
       </div>
 
       <ol className="station-rows">
-        {listed.map(({ station, name, km }) => (
+        {listed.map(({ station, km }) => (
           <li key={station.id}>
             <button
               className={station.id === selected.id ? "station current" : "station"}
@@ -60,8 +62,8 @@ export function StationList({
               aria-current={station.id === selected.id ? "true" : undefined}
             >
               <span className="station-name">
-                <span className="primary">{name.primary}</span>
-                {name.context && <span className="context">{name.context}</span>}
+                <span className="primary">{station.name}</span>
+                {station.context && <span className="context">{station.context}</span>}
               </span>
               {km != null && <span className="km">{km < 10 ? km.toFixed(1) : Math.round(km)} km</span>}
             </button>

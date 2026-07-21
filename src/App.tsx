@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { matchStation, predict, stations, type Match, type Station } from "./tides";
-import { stationName } from "./stationName";
+import { matchStation, predict, resolvedStations, stations, type Match, type Station } from "./tides";
 import { TideChart } from "./TideChart";
 import { EventList } from "./EventList";
 import { StationList } from "./StationList";
@@ -49,7 +48,10 @@ export function App() {
   }
 
   const state = useMemo(() => predict(station, now), [station, now]);
-  const name = useMemo(() => stationName(station.name), [station]);
+  const resolved = useMemo(
+    () => resolvedStations.find((s) => s.id === station.id)!,
+    [station],
+  );
 
   if (gated) return <LocationGate onResolve={resolveGate} />;
 
@@ -91,15 +93,15 @@ export function App() {
         <header className="topbar">
           <button className="picker" onClick={() => setListOpen(true)}>
             <span className="eyebrow">Station</span>
-            <span className="picker-name">{name.primary}</span>
+            <span className="picker-name">{resolved.name}</span>
             <span className="picker-caret">▾</span>
           </button>
         </header>
 
         <section className="panel hero rise">
           <div className="place">
-            <h1>{name.primary}</h1>
-            {name.context && <p className="context">{name.context}</p>}
+            <h1>{resolved.name}</h1>
+            {resolved.context && <p className="context">{resolved.context}</p>}
             {match && (
               <p className={`match ${match.quality}`}>
                 {match.distanceKm.toFixed(1)} km away · {QUALITY_COPY[match.quality]}
