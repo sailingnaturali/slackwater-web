@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   matchStation,
+  distanceKm,
   predict,
   resolvedStations,
   stations,
@@ -16,6 +17,7 @@ import { LocationGate, type GateResult } from "./LocationGate";
 import { Search } from "./SearchScreen";
 import { Settings } from "./Settings";
 import { usePreferences } from "./usePreferences";
+import { useLocation } from "./useLocation";
 import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
 import { loadSaved, star, unstar, visit, rememberLocation, type Saved } from "./savedStations";
 
@@ -68,6 +70,37 @@ export function App() {
     const timer = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(timer);
   }, []);
+
+  // Disabled until the gate resolves: the first-ever ask belongs to
+  // LocationGate's explain-first screen, not a silent prompt fired the
+  // moment this hook mounts. After that, this is what notices a user who
+  // closed the app in Victoria and opened it again in Seattle.
+  const live = useLocation(!gated);
+
+  useEffect(() => {
+    if (live.unavailable) {
+      // Revoked between visits: a stale seeded card is worse than none.
+      setLocated(null);
+      setOrigin(null);
+      return;
+    }
+    if (!live.position || !live.place) return;
+    setOrigin(live.position);
+    if (located?.station.slug === live.place.station.slug) return;
+    const graded = matchStation(live.position);
+    const found: Match = {
+      station: live.place.station,
+      distanceKm: distanceKm(live.position, live.place.station),
+      quality: graded?.quality ?? "nearest",
+    };
+    setStation(live.place.station);
+    setMatch(found);
+    setLocated({ station: live.place.station, match: found });
+    setSaved(rememberLocation(live.place.station.slug));
+    // `located` isn't a dep: it's this effect's own output, and listing it
+    // would just re-run the effect (harmlessly, since the slug check above
+    // no-ops) every time it fires.
+  }, [live.position, live.place, live.unavailable]);
 
   function resolveGate(result: GateResult) {
     localStorage.setItem(SEEN_GATE, "1");
