@@ -3,6 +3,7 @@ import { createTidePredictor } from "@neaps/tide-predictor";
 // rather than reading files, so nothing reaches for a filesystem at runtime.
 // (1.2.x needed the data hand-imported here; that blanked the page.)
 import { createBundledResolver } from "@sailingnaturali/station-corrections";
+import { getTimes as getSunTimes } from "suncalc";
 import stationData from "./data/stations.json";
 
 export interface Station {
@@ -170,6 +171,65 @@ export function extremesOn(state: TideState, day: Date, timezone: string): Extre
 
 function localDay(date: Date, timezone: string): string {
   return date.toLocaleDateString("en-CA", { timeZone: timezone });
+}
+
+export type DayEventKind = "high" | "low" | "sunrise" | "sunset";
+
+/** One row of the schedule table — a tide turn or a sun event, same shape. */
+export interface DayEvent {
+  time: Date;
+  kind: DayEventKind;
+  /** Height above chart datum. Present for tide turns only. */
+  level?: number;
+}
+
+/**
+ * Sunrise/sunset for the station's local day, via suncalc.
+ *
+ * suncalc buckets by the UTC calendar day of the Date it's given, which
+ * doesn't line up with the station's local day, so this asks it for the
+ * day either side too and keeps whatever actually lands in the target
+ * local day - the same widen-then-filter shape `predictRange` uses for
+ * extremes, for the same reason (a turn/event near local midnight must not
+ * get clipped by a UTC edge).
+ *
+ * A station far enough north can lack a sunrise or sunset entirely on a
+ * given day (polar day/night) - suncalc's own shipped types (2.0.1) report
+ * that as `null`, not Invalid Date. The bundled stations are all Salish Sea
+ * (48-49°N) so this never fires today, but a null is dropped rather than
+ * rendered as a row.
+ */
+function sunEvents(station: Station, day: Date): DayEvent[] {
+  const target = localDay(day, station.timezone);
+  const events: DayEvent[] = [];
+  for (const offset of [-1, 0, 1]) {
+    const reference = new Date(day.getTime() + offset * 24 * HOUR);
+    const { sunrise, sunset } = getSunTimes(reference, station.latitude, station.longitude);
+    if (sunrise && localDay(sunrise, station.timezone) === target) {
+      events.push({ time: sunrise, kind: "sunrise" });
+    }
+    if (sunset && localDay(sunset, station.timezone) === target) {
+      events.push({ time: sunset, kind: "sunset" });
+    }
+  }
+  return events;
+}
+
+/**
+ * Tide turns and sunrise/sunset for one local day, interleaved by time.
+ *
+ * The events table as a function of `t`, made concrete: everything that
+ * happens to this station on this day, in the order it happens.
+ */
+export function dayEvents(station: Station, day: Date): DayEvent[] {
+  const tides: DayEvent[] = predictRange(station, day, 1).map((extreme) => ({
+    time: extreme.time,
+    kind: extreme.high ? "high" : "low",
+    level: extreme.level,
+  }));
+  return [...tides, ...sunEvents(station, day)].sort(
+    (a, b) => a.time.getTime() - b.time.getTime(),
+  );
 }
 
 /** Great-circle distance in kilometres. */

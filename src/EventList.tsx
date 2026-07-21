@@ -1,8 +1,25 @@
 import { useMemo, useState } from "react";
-import { predictRange, type Station } from "./tides";
+import { dayEvents, type DayEvent, type DayEventKind, type Station } from "./tides";
 import { formatHeight, heightUnit, type Units } from "./units";
 
 const DAY = 86_400_000;
+
+const PILLS: Record<DayEventKind, { label: string; className: string }> = {
+  high: { label: "↑ High", className: "high" },
+  low: { label: "↓ Low", className: "low" },
+  sunrise: { label: "✳ Rise", className: "sun" },
+  sunset: { label: "☾ Set", className: "sun" },
+};
+
+/** The event whose time sits closest to `t` — the row the scrub line is on. */
+function nearestEvent(events: DayEvent[], t: Date): DayEvent | null {
+  if (!events.length) return null;
+  return events.reduce((closest, event) =>
+    Math.abs(event.time.getTime() - t.getTime()) < Math.abs(closest.time.getTime() - t.getTime())
+      ? event
+      : closest,
+  );
+}
 
 /**
  * The schedule (spec §5a) — where "when" lives.
@@ -23,7 +40,8 @@ export function EventList({
   const [dayOffset, setDayOffset] = useState(0);
 
   const day = useMemo(() => new Date(now.getTime() + dayOffset * DAY), [now, dayOffset]);
-  const events = useMemo(() => predictRange(station, day, 1), [station, day]);
+  const events = useMemo(() => dayEvents(station, day), [station, day]);
+  const nearest = useMemo(() => nearestEvent(events, now), [events, now]);
 
   const dayLabel = day.toLocaleDateString("en-CA", {
     weekday: "long",
@@ -62,10 +80,13 @@ export function EventList({
       <ol className="event-rows">
         {events.map((event) => {
           const past = event.time < now;
+          const pill = PILLS[event.kind];
+          const classes = ["event"];
+          if (past) classes.push("past");
+          if (event === nearest) classes.push("nearest");
           return (
-            <li key={event.time.toISOString()} className={past ? "event past" : "event"}>
-              <span className={event.high ? "swatch high" : "swatch low"} aria-hidden="true" />
-              <span className="kind">{event.high ? "High" : "Low"}</span>
+            <li key={event.time.toISOString() + event.kind} className={classes.join(" ")}>
+              <span className={`pill ${pill.className}`}>{pill.label}</span>
               <time dateTime={event.time.toISOString()}>
                 {event.time.toLocaleTimeString("en-CA", {
                   hour: "2-digit",
@@ -75,13 +96,19 @@ export function EventList({
                 })}
               </time>
               <span className="height">
-                {formatHeight(event.level, units)}
-                <abbr>{heightUnit(units)}</abbr>
+                {event.level != null ? (
+                  <>
+                    {formatHeight(event.level, units)}
+                    <abbr>{heightUnit(units)}</abbr>
+                  </>
+                ) : (
+                  <span aria-hidden="true">—</span>
+                )}
               </span>
             </li>
           );
         })}
-        {!events.length && <li className="event empty">No turns on this day.</li>}
+        {!events.length && <li className="event empty">Nothing on this day.</li>}
       </ol>
     </section>
   );
