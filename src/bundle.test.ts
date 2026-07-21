@@ -13,7 +13,10 @@ describe("built bundle", () => {
 
   it("never reaches for a Node builtin", () => {
     // This is the check that would have caught the fileURLToPath crash.
-    const forbidden = ["fileURLToPath", "node:fs", "node:url", "node:path", "createBundledResolver"];
+    // Node builtins only. createBundledResolver was on this list while it read
+// files; since station-corrections 1.3.0 it imports compiled JSON and is
+// browser-safe, so forbidding the name would now fail on correct code.
+    const forbidden = ["fileURLToPath", "node:fs", "node:url", "node:path"];
     for (const file of readdirSync(DIST).filter((f) => f.endsWith(".js"))) {
       const source = readFileSync(join(DIST, file), "utf8");
       for (const token of forbidden) {

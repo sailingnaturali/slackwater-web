@@ -1,12 +1,8 @@
 import { createTidePredictor } from "@neaps/tide-predictor";
-// The package's createBundledResolver() reads its data with node:fs and
-// node:url, so it cannot run in a browser - importing it blanks the page with
-// "fileURLToPath is not a function". createResolver and loadCorrections are
-// pure, and the data ships behind the ./data/* export subpath, so the bundler
-// inlines both at build time and nothing reaches for a filesystem at runtime.
-import { createResolver, loadCorrections } from "@sailingnaturali/station-corrections";
-import correctionsYaml from "@sailingnaturali/station-corrections/data/corrections.yaml?raw";
-import gazetteer from "@sailingnaturali/station-corrections/data/gazetteer.json";
+// Browser-safe since 1.3.0: the package imports its data as compiled JSON
+// rather than reading files, so nothing reaches for a filesystem at runtime.
+// (1.2.x needed the data hand-imported here; that blanked the page.)
+import { createBundledResolver } from "@sailingnaturali/station-corrections";
 import stationData from "./data/stations.json";
 
 export interface Station {
@@ -36,7 +32,7 @@ export interface ResolvedStation extends Station {
   aliases: string[];
 }
 
-const resolve = createResolver({ corrections: loadCorrections(correctionsYaml), gazetteer });
+const resolve = createBundledResolver();
 
 /**
  * Stations with naming resolved once at module load.
