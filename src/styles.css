@@ -402,6 +402,25 @@ button.ghost:hover { border-color: var(--sn-paper); }
   gap: 1.5rem;
 }
 
+/* The sidebar's entry into Search — a plain control, not the prototype's
+   floating circular button; the sidebar already has a natural top slot on
+   web that iOS doesn't. */
+.search-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 1.25rem 0.5rem;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.6rem 1rem;
+  color: var(--ink-faint);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+}
+.search-entry:hover { border-color: var(--sn-steel); color: var(--ink); }
+
 .sidebar-foot {
   padding: 0.75rem 1.25rem;
   border-top: 1px solid var(--hairline);
@@ -438,6 +457,49 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .all-toggle:hover { color: var(--ink); }
 
 .station-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+
+/* --------------------------------------------------------------- search */
+
+/* Its own screen (not a sidebar panel, not a modal): full height, same
+   ground as everywhere else, so it reads as a place you went to rather than
+   a layer stacked on top of the app. */
+.search-screen {
+  min-height: 100%;
+  padding: 1.5rem 1.25rem max(2rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  max-width: 40rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.search-head { display: flex; align-items: baseline; justify-content: space-between; }
+.search-head h1 { font-size: clamp(1.6rem, 4.5vw, 2rem); }
+
+.search-cancel {
+  background: transparent;
+  border: none;
+  color: var(--sn-leaf);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.4rem 0;
+}
+.search-cancel:hover { color: var(--ink); }
+
+.search-input {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.85rem 1.25rem;
+  width: 100%;
+}
+.search-input:focus-visible { border-color: var(--sn-steel); }
+.search-input::placeholder { color: var(--ink-faint); }
+
+.search-label { color: var(--sn-leaf); }
+.search-empty { color: var(--ink-faint); }
 
 /* The card itself: one fixed gradient for every card (see StationCard.tsx —
    deliberate, pending a decision on what a tint would even mean). */

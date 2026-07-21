@@ -5,6 +5,7 @@ import { EventList } from "./EventList";
 import { StationList, type LocatedStation } from "./StationList";
 import { nearestStations } from "./nearby";
 import { LocationGate, type GateResult } from "./LocationGate";
+import { Search } from "./SearchScreen";
 import { Settings } from "./Settings";
 import { usePreferences } from "./usePreferences";
 import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
@@ -38,6 +39,7 @@ export function App() {
   const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [listOpen, setListOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { units, setUnits } = usePreferences();
 
@@ -73,6 +75,22 @@ export function App() {
 
   if (gated) return <LocationGate onResolve={resolveGate} />;
 
+  if (searchOpen) {
+    return (
+      <Search
+        stations={resolvedStations}
+        units={units}
+        now={now}
+        selectedId={station.id}
+        onSelect={(next) => {
+          choose(next);
+          setSearchOpen(false);
+        }}
+        onCancel={() => setSearchOpen(false)}
+      />
+    );
+  }
+
   const time = (date: Date) =>
     date.toLocaleTimeString("en-CA", {
       hour: "2-digit",
@@ -102,6 +120,9 @@ export function App() {
             ✕
           </button>
         </div>
+        <button className="search-entry" onClick={() => setSearchOpen(true)}>
+          <span aria-hidden="true">⌕</span> Search stations
+        </button>
         <StationList
           located={located}
           // Task 4a wires real starred/recent persistence; empty until then.

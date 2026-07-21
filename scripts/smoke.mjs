@@ -114,13 +114,52 @@ async function main() {
     const tideHeight = await page.$eval(".reading .value", (el) => el.textContent);
     if (!/\d/.test(tideHeight ?? "")) throw new Error(`expected a tide height, got: ${JSON.stringify(tideHeight)}`);
 
+    // This is the regression Task 5 exists to close: with location declined,
+    // the sidebar's Current location/Starred/Recent/Nearby groups have no
+    // data (Task 4a's persistence is still pending), so Search is the only
+    // path to any of the other 40 stations. Confirm it actually is one —
+    // open it and select a station that is not the fallback already showing.
+    const searchEntryIndex = await page.$$eval("button", (buttons) =>
+      buttons.findIndex((b) => b.textContent?.includes("Search stations")),
+    );
+    if (searchEntryIndex === -1) throw new Error('no "Search stations" button found in the sidebar');
+    const sidebarButtons = await page.$$("button");
+    await sidebarButtons[searchEntryIndex].click();
+
+    await page.waitForSelector("h1", { timeout: 5_000 });
+    const searchHeading = await page.$eval("h1", (el) => el.textContent);
+    if (searchHeading !== "Search") {
+      throw new Error(`expected the Search screen heading, got: ${JSON.stringify(searchHeading)}`);
+    }
+
+    await page.waitForSelector(".station-card", { timeout: 5_000 });
+    const popularCount = (await page.$$(".station-card")).length;
+    if (popularCount === 0) throw new Error("Search showed no POPULAR stations on an empty query");
+
+    await page.type(".search-input", "everett");
+    await page.waitForFunction(
+      () => document.querySelector(".station-card-name")?.textContent === "Everett",
+      { timeout: 5_000 },
+    );
+    const stationCard = await page.$(".station-card");
+    await stationCard.click();
+
+    // Selecting a result returns to the main screen showing that station.
+    await page.waitForFunction(
+      () => document.querySelector(".place h1")?.textContent === "Everett",
+      { timeout: 5_000 },
+    );
+
     // ponytail: deep-link coverage deferred until Task 6 lands a route to link to.
 
     if (errors.length) {
       throw new Error(`page reported errors:\n${errors.join("\n")}`);
     }
 
-    console.log(`smoke OK — location card "${locationTitle.trim()}", tide height "${tideHeight}"`);
+    console.log(
+      `smoke OK — location card "${locationTitle.trim()}", tide height "${tideHeight}", ` +
+        `search reached "Everett" from ${popularCount} POPULAR stations`,
+    );
   } finally {
     if (browser) await browser.close();
     // Negative pid targets the whole detached process group (npx + vite),
