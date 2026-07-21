@@ -402,6 +402,8 @@ button.ghost:hover { border-color: var(--sn-paper); }
 }
 .search input::placeholder { color: var(--ink-faint); }
 
+.stations { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
 .station-rows {
   list-style: none;
   margin: 0;
@@ -410,6 +412,21 @@ button.ghost:hover { border-color: var(--sn-paper); }
   flex: 1;
 }
 .station-rows .none { color: var(--ink-faint); padding: 1rem 0.5rem; font-size: 0.9rem; }
+
+.sidebar-foot {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.settings-entry {
+  background: transparent;
+  border: none;
+  color: var(--ink-faint);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.4rem 0;
+}
+.settings-entry:hover { color: var(--ink); }
 
 button.station {
   display: flex;
@@ -438,6 +455,56 @@ button.station.current .context { color: inherit; opacity: 0.7; }
   color: var(--ink-faint);
   white-space: nowrap;
 }
+
+/* ----------------------------------------------------------------- settings */
+
+dialog.settings {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  width: min(24rem, calc(100vw - 2.5rem));
+  margin: auto;
+}
+dialog.settings::backdrop { background: rgba(0, 24, 60, 0.55); }
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.settings-head h2 { font-size: 1.4rem; }
+
+.done {
+  background: transparent;
+  border: none;
+  color: var(--sn-leaf);
+  font-weight: 500;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+
+.settings-section .eyebrow { color: var(--sn-leaf); margin-bottom: 0.6rem; }
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.2rem;
+}
+.seg {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+.seg.current { background: var(--sn-leaf); color: var(--sn-navy); font-weight: 500; }
 
 /* ------------------------------------------------------------------ footer */
 

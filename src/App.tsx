@@ -4,6 +4,9 @@ import { TideChart } from "./TideChart";
 import { EventList } from "./EventList";
 import { StationList } from "./StationList";
 import { LocationGate, type GateResult } from "./LocationGate";
+import { Settings } from "./Settings";
+import { usePreferences } from "./usePreferences";
+import { formatHeight, heightUnit } from "./units";
 
 /** Friday Harbor: central, well-measured, and inside the bundled coverage. */
 const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];
@@ -24,6 +27,8 @@ export function App() {
   const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [listOpen, setListOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { units, setUnits } = usePreferences();
 
   // The readout is a clock, not a snapshot.
   useEffect(() => {
@@ -84,8 +89,20 @@ export function App() {
             ✕
           </button>
         </div>
-        <StationList selected={station} origin={origin} onSelect={choose} />
+        <StationList selected={station} origin={origin} units={units} onSelect={choose} />
+        <div className="sidebar-foot">
+          <button className="settings-entry" onClick={() => setSettingsOpen(true)}>
+            Settings
+          </button>
+        </div>
       </aside>
+
+      <Settings
+        open={settingsOpen}
+        units={units}
+        onUnitsChange={setUnits}
+        onClose={() => setSettingsOpen(false)}
+      />
 
       {listOpen && <div className="scrim" onClick={() => setListOpen(false)} />}
 
@@ -114,15 +131,18 @@ export function App() {
               {state.rising ? "▲ Rising" : "▼ Falling"}
             </span>
             <span className="value">
-              {state.level.toFixed(2)}
-              <abbr>m</abbr>
+              {formatHeight(state.level, units)}
+              <abbr>{heightUnit(units)}</abbr>
             </span>
           </p>
 
           {state.next && untilNext !== null && (
             <p className="next">
               Next {state.next.high ? "high" : "low"} of{" "}
-              <strong>{state.next.level.toFixed(2)} m</strong> at {time(state.next.time)}
+              <strong>
+                {formatHeight(state.next.level, units)} {heightUnit(units)}
+              </strong>{" "}
+              at {time(state.next.time)}
               <span className="muted">
                 {" "}
                 · in {Math.floor(untilNext / 60)}h {untilNext % 60}m

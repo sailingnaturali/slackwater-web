@@ -1,8 +1,13 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  test: {
+    // Only usePreferences.test.ts needs a DOM (localStorage); everything else
+    // runs fine without one, so this is the cheapest environment that works.
+    environment: "jsdom",
+  },
   plugins: [
     react(),
     VitePWA({

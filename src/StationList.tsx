@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { distanceKm, resolvedStations, type Station } from "./tides";
+import { distanceUnit, formatDistance, type Units } from "./units";
 
 /**
  * The station list — the fallback when location is declined, and the switcher
@@ -11,10 +12,12 @@ import { distanceKm, resolvedStations, type Station } from "./tides";
 export function StationList({
   selected,
   origin,
+  units,
   onSelect,
 }: {
   selected: Station;
   origin: { latitude: number; longitude: number } | null;
+  units: Units;
   onSelect: (station: Station) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -65,7 +68,11 @@ export function StationList({
                 <span className="primary">{station.name}</span>
                 {station.context && <span className="context">{station.context}</span>}
               </span>
-              {km != null && <span className="km">{km < 10 ? km.toFixed(1) : Math.round(km)} km</span>}
+              {km != null && (
+                <span className="km">
+                  {formatDistance(km, units)} {distanceUnit(units)}
+                </span>
+              )}
             </button>
           </li>
         ))}
