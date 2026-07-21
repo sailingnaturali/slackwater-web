@@ -71,15 +71,23 @@ export function App() {
     return resolved && match ? { station: resolved, match } : null;
   });
   const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [now, setNow] = useState(() => urlMatch?.t ?? new Date());
+  // `t` is the shared scrub instant (§ Task 7): null until the readout line is
+  // released somewhere, and from a deep link before that. `liveNow` is the
+  // ticking clock underneath - every pane reads `t ?? liveNow`, never `t` or
+  // `liveNow` alone, so a scrub sticks exactly where it landed instead of
+  // being overwritten by the next tick.
+  const [t, setT] = useState<Date | null>(() => urlMatch?.t ?? null);
+  const [liveNow, setLiveNow] = useState(() => new Date());
+  const now = t ?? liveNow;
   const [listOpen, setListOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { units, setUnits } = usePreferences();
 
-  // The readout is a clock, not a snapshot.
+  // The readout is a clock, not a snapshot - but only while nothing has
+  // pinned it (see `t` above).
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 30_000);
+    const timer = setInterval(() => setLiveNow(new Date()), 30_000);
     return () => clearInterval(timer);
   }, []);
 
@@ -224,9 +232,18 @@ export function App() {
     setMatch(null);
     setListOpen(false);
     setSaved(visit(next.slug));
-    // A deliberate pick is "now" for that station — no moment to carry yet
-    // (the readout line, which will, is Task 7).
+    // A deliberate pick is "now" for that station — any scrub held against
+    // the previous one doesn't carry across.
+    setT(null);
     history.replaceState(null, "", buildUrl(next, null));
+  }
+
+  // Fired once, on release, by the chart's readout line (already snapped
+  // onto a nearby turn) — writes the URL here rather than per pixel, so
+  // dragging doesn't hammer history with a replaceState per frame.
+  function scrub(next: Date) {
+    setT(next);
+    history.replaceState(null, "", buildUrl(resolved, next));
   }
 
   function toggleStar(target: ResolvedStation) {
@@ -300,6 +317,7 @@ export function App() {
                 units={units}
                 onChoose={(next) => {
                   setStation(next);
+                  setT(null);
                   history.replaceState(null, "", buildUrl(next, null));
                 }}
               />
@@ -332,7 +350,7 @@ export function App() {
         </section>
 
         <section className="panel chart-panel">
-          <TideChart state={state} now={now} timezone={station.timezone} units={units} />
+          <TideChart station={resolved} state={state} now={now} units={units} onScrub={scrub} />
         </section>
 
         <EventList station={station} now={now} units={units} />

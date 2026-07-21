@@ -135,6 +135,26 @@ export function predictRange(station: Station, from: Date, days: number): Extrem
     .filter((extreme) => wanted.has(localDay(extreme.time, station.timezone)));
 }
 
+/**
+ * Pull a scrubbed time onto a nearby high or low.
+ *
+ * Released within `windowMinutes` of a turn, the line parks exactly on it -
+ * "when is high water" is the commonest reason to move the line at all, and
+ * landing three minutes off is a worse answer than landing on it.
+ */
+export function snapToTurn(t: Date, extremes: Extreme[], windowMinutes: number): Date {
+  let best: Extreme | null = null;
+  let bestGap = windowMinutes * 60_000;
+  for (const extreme of extremes) {
+    const gap = Math.abs(extreme.time.getTime() - t.getTime());
+    if (gap <= bestGap) {
+      bestGap = gap;
+      best = extreme;
+    }
+  }
+  return best ? best.time : t;
+}
+
 /** Extremes falling on the same local day as `day`, for the day's table. */
 export function extremesOn(state: TideState, day: Date, timezone: string): Extreme[] {
   const target = localDay(day, timezone);
