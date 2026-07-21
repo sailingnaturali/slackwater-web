@@ -519,6 +519,21 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .station-card:hover { border-color: var(--sn-steel); }
 .station-card.current { border-color: var(--sn-leaf); }
 
+.station-card-row { display: flex; align-items: stretch; gap: 0.4rem; }
+.station-card-row .station-card { width: auto; flex: 1; }
+.star-toggle {
+  flex-shrink: 0;
+  width: 2.4rem;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: none;
+  color: var(--ink-faint);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.star-toggle:hover { border-color: var(--sn-steel); }
+.star-toggle.starred { color: var(--sn-leaf); }
+
 .station-card-main { display: flex; flex-direction: column; min-width: 0; gap: 0.25rem; }
 .station-card-title { margin: 0; display: flex; align-items: baseline; gap: 0.6rem; }
 .station-card-name { font-family: var(--font-display); font-weight: 500; font-size: 1.05rem; }

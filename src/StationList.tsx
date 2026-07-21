@@ -46,6 +46,7 @@ export function StationList({
   units,
   now,
   onSelect,
+  onToggleStar,
 }: {
   located: LocatedStation | null;
   starred: ResolvedStation[];
@@ -56,6 +57,7 @@ export function StationList({
   units: Units;
   now: Date;
   onSelect: (station: ResolvedStation) => void;
+  onToggleStar?: (station: ResolvedStation) => void;
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
@@ -63,6 +65,8 @@ export function StationList({
   // the located station takes precedence, then starred, then recent.
   const used = new Set<string>();
   if (located) used.add(located.station.id);
+
+  const starredIds = new Set(starred.map((s) => s.id));
 
   const starredEntries = withDistance(starred, origin).filter((e) => !used.has(e.station.id));
   for (const e of starredEntries) used.add(e.station.id);
@@ -92,7 +96,9 @@ export function StationList({
           state={located ? predict(located.station, now) : null}
           units={units}
           selected={located?.station.id === selectedId}
+          starred={located ? starredIds.has(located.station.id) : false}
           onSelect={() => located && onSelect(located.station)}
+          onToggleStar={onToggleStar && located ? () => onToggleStar(located.station) : undefined}
         />
       </section>
 
@@ -124,7 +130,9 @@ export function StationList({
                     state={predict(station, now)}
                     units={units}
                     selected={station.id === selectedId}
+                    starred={starredIds.has(station.id)}
                     onSelect={() => onSelect(station)}
+                    onToggleStar={onToggleStar ? () => onToggleStar(station) : undefined}
                   />
                 </li>
               ))}

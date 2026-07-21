@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { matchStation, predict, resolvedStations, stations, type Match, type Station } from "./tides";
+import {
+  matchStation,
+  predict,
+  resolvedStations,
+  stations,
+  type Match,
+  type ResolvedStation,
+  type Station,
+} from "./tides";
 import { TideChart } from "./TideChart";
 import { EventList } from "./EventList";
 import { StationList, type LocatedStation } from "./StationList";
@@ -9,6 +17,7 @@ import { Search } from "./SearchScreen";
 import { Settings } from "./Settings";
 import { usePreferences } from "./usePreferences";
 import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
+import { loadSaved, star, unstar, visit, rememberLocation, type Saved } from "./savedStations";
 
 // NEARBY's "All" shows at most 20 (spec §4) — beyond that it stops being
 // nearby and becomes the full list, which is what Search (a later task) is
@@ -32,10 +41,21 @@ export function App() {
   const [gated, setGated] = useState(() => !localStorage.getItem(SEEN_GATE));
   const [station, setStation] = useState<Station>(FALLBACK);
   const [match, setMatch] = useState<Match | null>(null);
+  const [saved, setSaved] = useState<Saved>(loadSaved);
   // Separate from `match`: CURRENT LOCATION keeps showing where you are even
   // after you pick a different station to look at, so it survives `choose()`
   // resetting `match` (which only hedges the hero's currently-viewed badge).
-  const [located, setLocated] = useState<LocatedStation | null>(null);
+  //
+  // A returning visitor never re-asks for geolocation (SEEN_GATE skips the
+  // gate outright), so without this the card would sit empty every load
+  // after the first. Seeding it from the persisted last-known station keeps
+  // it populated; a live match from `resolveGate` overwrites it below.
+  const [located, setLocated] = useState<LocatedStation | null>(() => {
+    const slug = saved.lastLocationSlug;
+    const resolved = slug ? resolvedStations.find((s) => s.slug === slug) : undefined;
+    const match = resolved ? matchStation(resolved) : null;
+    return resolved && match ? { station: resolved, match } : null;
+  });
   const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [listOpen, setListOpen] = useState(false);
@@ -58,7 +78,10 @@ export function App() {
         setStation(found.station);
         setMatch(found);
         const resolved = resolvedStations.find((s) => s.id === found.station.id);
-        if (resolved) setLocated({ station: resolved, match: found });
+        if (resolved) {
+          setLocated({ station: resolved, match: found });
+          setSaved(rememberLocation(resolved.slug));
+        }
       }
     } else {
       // Declined: the list is the answer, not an empty screen.
@@ -71,6 +94,18 @@ export function App() {
   const resolved = useMemo(
     () => resolvedStations.find((s) => s.id === station.id)!,
     [station],
+  );
+
+  // Saved state stores slugs, not stations — looked up here so a renamed or
+  // removed station can never leave a stale object sitting in the list.
+  const bySlug = (slug: string) => resolvedStations.find((s) => s.slug === slug);
+  const starredStations = useMemo(
+    () => saved.starred.map(bySlug).filter((s): s is ResolvedStation => s != null),
+    [saved.starred],
+  );
+  const recentStations = useMemo(
+    () => saved.recent.map(bySlug).filter((s): s is ResolvedStation => s != null),
+    [saved.recent],
   );
 
   if (gated) return <LocationGate onResolve={resolveGate} />;
@@ -103,12 +138,17 @@ export function App() {
     ? Math.round((state.next.time.getTime() - now.getTime()) / 60_000)
     : null;
 
-  function choose(next: Station) {
+  function choose(next: ResolvedStation) {
     setStation(next);
     // The badge describes how well an automatic snap fits. A deliberate pick
     // needs no hedging — the user said which station they meant.
     setMatch(null);
     setListOpen(false);
+    setSaved(visit(next.slug));
+  }
+
+  function toggleStar(target: ResolvedStation) {
+    setSaved(saved.starred.includes(target.slug) ? unstar(target.slug) : star(target.slug));
   }
 
   return (
@@ -125,15 +165,15 @@ export function App() {
         </button>
         <StationList
           located={located}
-          // Task 4a wires real starred/recent persistence; empty until then.
-          starred={[]}
-          recent={[]}
+          starred={starredStations}
+          recent={recentStations}
           nearby={origin ? nearestStations(origin, resolvedStations, NEARBY_ALL_LIMIT) : []}
           origin={origin}
           selectedId={station.id}
           units={units}
           now={now}
           onSelect={choose}
+          onToggleStar={toggleStar}
         />
         <div className="sidebar-foot">
           <button className="settings-entry" onClick={() => setSettingsOpen(true)}>

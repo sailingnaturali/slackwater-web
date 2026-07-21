@@ -33,14 +33,18 @@ export function LocationCard({
   state,
   units,
   selected,
+  starred,
   onSelect,
+  onToggleStar,
 }: {
   match: Match | null;
   station: ResolvedStation | null;
   state: TideState | null;
   units: Units;
   selected: boolean;
+  starred?: boolean;
   onSelect: () => void;
+  onToggleStar?: () => void;
 }) {
   if (match && station && state) {
     return (
@@ -50,7 +54,9 @@ export function LocationCard({
           state={state}
           units={units}
           selected={selected}
+          starred={starred}
           onSelect={onSelect}
+          onToggleStar={onToggleStar}
         />
         <p className="location-meta">
           <span className="mono">{formatCoords(station.latitude, station.longitude)}</span>

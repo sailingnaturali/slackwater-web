@@ -28,16 +28,20 @@ export function StationCard({
   state,
   units,
   selected,
+  starred,
   onSelect,
+  onToggleStar,
 }: {
   station: ResolvedStation;
   km?: number;
   state: TideState;
   units: Units;
   selected?: boolean;
+  starred?: boolean;
   onSelect: () => void;
+  onToggleStar?: () => void;
 }) {
-  return (
+  const card = (
     <button
       className={selected ? "station-card current" : "station-card"}
       onClick={onSelect}
@@ -70,5 +74,25 @@ export function StationCard({
         </span>
       </div>
     </button>
+  );
+
+  // No onToggleStar means "not starrable here" (none currently), so the plain
+  // card is returned rather than wrapping every card in an extra div. A
+  // nested <button> inside the select button would be invalid HTML, hence
+  // the star toggle sits beside it rather than inside.
+  if (!onToggleStar) return card;
+
+  return (
+    <div className="station-card-row">
+      {card}
+      <button
+        className={starred ? "star-toggle starred" : "star-toggle"}
+        onClick={onToggleStar}
+        aria-pressed={starred ? "true" : "false"}
+        aria-label={starred ? `Unstar ${station.name}` : `Star ${station.name}`}
+      >
+        {starred ? "★" : "☆"}
+      </button>
+    </div>
   );
 }
