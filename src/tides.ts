@@ -106,7 +106,14 @@ export function predict(station: Station, now: Date): TideState {
   const soon = predictor.getWaterLevelAtTime({ time: new Date(now.getTime() + 600_000) }).level;
   const next = extremes.find((extreme) => extreme.time > now) ?? null;
 
-  return { level, rising: soon > level, next, extremes, timeline };
+  // Direction comes from the next turn, not from comparing two sampled levels.
+  // Within a few minutes of a turn the curve is flat - the levels either side
+  // differ by well under a millimetre - so sampling picks up numerical noise
+  // and can report "falling" while parked exactly on a low. Heading toward a
+  // high means rising, and that stays true however flat the water is.
+  const rising = next ? next.high : soon > level;
+
+  return { level, rising, next, extremes, timeline };
 }
 
 /**
