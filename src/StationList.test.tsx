@@ -1,9 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StationList } from "./StationList";
 import { resolvedStations, matchStation } from "./tides";
 import type { NearbyStation } from "./nearby";
 import type { ResolvedStation } from "./tides";
+
+(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const now = new Date("2026-07-20T19:00:00Z");
 
@@ -20,6 +24,18 @@ const located = { station: fridayHarbor, match: matchStation(fridayHarbor)! };
 function labelIndex(html: string, label: string): number {
   return html.indexOf(`>${label}<`);
 }
+
+let container: HTMLDivElement | null = null;
+let root: Root | null = null;
+
+afterEach(() => {
+  if (root && container) {
+    act(() => root!.unmount());
+    container.remove();
+  }
+  root = null;
+  container = null;
+});
 
 describe("StationList grouping", () => {
   it("renders the groups in order: current location, starred, recent, nearby", () => {
@@ -100,6 +116,79 @@ describe("StationList grouping", () => {
       />,
     );
     expect(htmlOverNearbyLimit).toContain("all-toggle");
+  });
+
+  it("offers 'All' for starred only once it holds more than the 50 cap", () => {
+    // Component-level invariant, exercised with a synthetic list bigger than
+    // the storage layer would ever actually hand it (savedStations.ts caps
+    // starred at 50 before this ever renders).
+    const many = Array.from({ length: 51 }, (_, i) => ({
+      ...everett,
+      id: `starred-${i}`,
+      slug: `starred-${i}`,
+    }));
+
+    const htmlOver = renderToStaticMarkup(
+      <StationList
+        located={null}
+        starred={many}
+        recent={[]}
+        nearby={[]}
+        origin={null}
+        selectedId={fridayHarbor.id}
+        units="imperial"
+        now={now}
+        onSelect={() => {}}
+      />,
+    );
+    expect(htmlOver).toContain("all-toggle");
+
+    const htmlAt = renderToStaticMarkup(
+      <StationList
+        located={null}
+        starred={many.slice(0, 50)}
+        recent={[]}
+        nearby={[]}
+        origin={null}
+        selectedId={fridayHarbor.id}
+        units="imperial"
+        now={now}
+        onSelect={() => {}}
+      />,
+    );
+    expect(htmlAt).not.toContain("all-toggle");
+  });
+
+  it("caps nearby's 'All' at 20 even when more stations are handed to it", () => {
+    // Defensive: the real caller (App.tsx) only ever fetches 20, but the
+    // component must not trust that — it enforces its own ceiling.
+    const many: NearbyStation<ResolvedStation>[] = Array.from({ length: 25 }, (_, i) => ({
+      station: { ...everett, id: `nearby-${i}`, slug: `nearby-${i}` },
+      km: i,
+    }));
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() => {
+      root!.render(
+        <StationList
+          located={null}
+          starred={[]}
+          recent={[]}
+          nearby={many}
+          origin={null}
+          selectedId={fridayHarbor.id}
+          units="imperial"
+          now={now}
+          onSelect={() => {}}
+        />,
+      );
+    });
+    act(() => {
+      container!.querySelector(".all-toggle")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(container!.querySelectorAll(".station-card").length).toBe(20);
   });
 
   it("renders the unavailable location card when there is no location", () => {

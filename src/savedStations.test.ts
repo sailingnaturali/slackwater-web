@@ -9,6 +9,7 @@ import {
   setPlaceStation,
   getPlaceStation,
   RECENT_LIMIT,
+  STARRED_LIMIT,
 } from "./savedStations";
 
 beforeEach(() => localStorage.clear());
@@ -93,5 +94,20 @@ describe("saved stations", () => {
   it("survives a corrupted placeStations value rather than throwing", () => {
     localStorage.setItem("slackwater.saved", JSON.stringify({ placeStations: ["not", "a", "map"] }));
     expect(loadSaved().placeStations).toEqual({});
+  });
+
+  it(`caps starred at ${STARRED_LIMIT}, demoting the oldest star to recent`, () => {
+    for (let i = 0; i < STARRED_LIMIT; i++) star(`star-${i}`);
+    const before = loadSaved();
+    expect(before.starred.length).toBe(STARRED_LIMIT);
+
+    const after = star("star-overflow");
+
+    expect(after.starred.length).toBe(STARRED_LIMIT);
+    expect(after.starred).not.toContain("star-0");
+    expect(after.starred).toContain("star-overflow");
+    // The oldest star fell off, not the newest.
+    expect(after.recent).toContain("star-0");
+    expect(after.recent).not.toContain(`star-${STARRED_LIMIT - 1}`);
   });
 });

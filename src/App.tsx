@@ -23,13 +23,15 @@ import { usePreferences } from "./usePreferences";
 import { stationsNear } from "./place";
 import { useLocation } from "./useLocation";
 import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
-import { loadSaved, star, unstar, visit, rememberLocation, type Saved } from "./savedStations";
-
-// NEARBY's "All" shows at most 20 (spec §4) — beyond that it stops being
-// nearby and becomes the full list, which is what Search (a later task) is
-// for. Capped here so StationList never has to know the number came from
-// somewhere else.
-const NEARBY_ALL_LIMIT = 20;
+import {
+  loadSaved,
+  star,
+  unstar,
+  visit,
+  rememberLocation,
+  NEARBY_ALL_LIMIT,
+  type Saved,
+} from "./savedStations";
 
 /** Friday Harbor: central, well-measured, and inside the bundled coverage. */
 const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];

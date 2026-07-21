@@ -4,6 +4,7 @@ import type { Units } from "./units";
 import type { NearbyStation } from "./nearby";
 import { StationCard } from "./StationCard";
 import { LocationCard } from "./LocationCard";
+import { RECENT_LIMIT, STARRED_LIMIT, NEARBY_ALL_LIMIT } from "./savedStations";
 
 export interface LocatedStation {
   station: ResolvedStation;
@@ -80,10 +81,20 @@ export function StationList({
     .filter((n) => !used.has(n.station.id))
     .map((n) => ({ station: n.station, km: n.km }));
 
-  const groups: { key: string; label: string; entries: Entry[]; limit: number | null }[] = [
-    { key: "starred", label: "Starred", entries: starredEntries, limit: null },
-    { key: "recent", label: "Recent", entries: recentEntries, limit: 7 },
-    { key: "nearby", label: "Nearby", entries: nearbyEntries, limit: 3 },
+  // `allLimit` bounds what "All" reveals, separate from the collapsed
+  // `limit` — distinct only for NEARBY, where the fetch window (20) is
+  // wider than the collapsed display (3). Enforced here rather than
+  // trusted from the caller, since a prop is not a promise.
+  const groups: {
+    key: string;
+    label: string;
+    entries: Entry[];
+    limit: number | null;
+    allLimit?: number;
+  }[] = [
+    { key: "starred", label: "Starred", entries: starredEntries, limit: STARRED_LIMIT },
+    { key: "recent", label: "Recent", entries: recentEntries, limit: RECENT_LIMIT },
+    { key: "nearby", label: "Nearby", entries: nearbyEntries, limit: 3, allLimit: NEARBY_ALL_LIMIT },
   ];
 
   return (
@@ -106,7 +117,10 @@ export function StationList({
         if (!group.entries.length) return null;
         const isExpanded = expanded.has(group.key);
         const overLimit = group.limit != null && group.entries.length > group.limit;
-        const visible = overLimit && !isExpanded ? group.entries.slice(0, group.limit!) : group.entries;
+        const visible =
+          overLimit && !isExpanded
+            ? group.entries.slice(0, group.limit!)
+            : group.entries.slice(0, group.allLimit ?? group.entries.length);
 
         return (
           <section className="station-group" key={group.key}>
