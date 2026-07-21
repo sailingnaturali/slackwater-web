@@ -1,4 +1,8 @@
 import type { TideState } from "./tides";
+import { formatHeight, type Units } from "./units";
+
+/** Spoken aloud by a screen reader, so the unit is spelled out rather than abbreviated. */
+const unitName = (units: Units) => (units === "imperial" ? "feet" : "metres");
 
 const WIDTH = 720;
 const HEIGHT = 240;
@@ -14,10 +18,12 @@ export function TideChart({
   state,
   now,
   timezone,
+  units,
 }: {
   state: TideState;
   now: Date;
   timezone: string;
+  units: Units;
 }) {
   const points = state.timeline;
   if (points.length < 2) return null;
@@ -53,7 +59,7 @@ export function TideChart({
       className="chart"
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       role="img"
-      aria-label={`Tide curve. Currently ${nowLevel.toFixed(2)} metres and ${
+      aria-label={`Tide curve. Currently ${formatHeight(nowLevel, units)} ${unitName(units)} and ${
         state.rising ? "rising" : "falling"
       }.`}
     >

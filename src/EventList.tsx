@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { predictRange, type Station } from "./tides";
+import { formatHeight, heightUnit, type Units } from "./units";
 
 const DAY = 86_400_000;
 
@@ -10,7 +11,15 @@ const DAY = 86_400_000;
  * tides cost the same as today's and need no network. That is the difference
  * between this and every app that gates a date range behind a subscription.
  */
-export function EventList({ station, now }: { station: Station; now: Date }) {
+export function EventList({
+  station,
+  now,
+  units,
+}: {
+  station: Station;
+  now: Date;
+  units: Units;
+}) {
   const [dayOffset, setDayOffset] = useState(0);
 
   const day = useMemo(() => new Date(now.getTime() + dayOffset * DAY), [now, dayOffset]);
@@ -65,7 +74,10 @@ export function EventList({ station, now }: { station: Station; now: Date }) {
                   timeZone: station.timezone,
                 })}
               </time>
-              <span className="height">{event.level.toFixed(2)}<abbr>m</abbr></span>
+              <span className="height">
+                {formatHeight(event.level, units)}
+                <abbr>{heightUnit(units)}</abbr>
+              </span>
             </li>
           );
         })}

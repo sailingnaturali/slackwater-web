@@ -6,7 +6,7 @@ import { StationList } from "./StationList";
 import { LocationGate, type GateResult } from "./LocationGate";
 import { Settings } from "./Settings";
 import { usePreferences } from "./usePreferences";
-import { formatHeight, heightUnit } from "./units";
+import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
 
 /** Friday Harbor: central, well-measured, and inside the bundled coverage. */
 const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];
@@ -121,7 +121,8 @@ export function App() {
             {resolved.context && <p className="context">{resolved.context}</p>}
             {match && (
               <p className={`match ${match.quality}`}>
-                {match.distanceKm.toFixed(1)} km away · {QUALITY_COPY[match.quality]}
+                {formatDistance(match.distanceKm, units)} {distanceUnit(units)} away ·{" "}
+                {QUALITY_COPY[match.quality]}
               </p>
             )}
           </div>
@@ -152,10 +153,10 @@ export function App() {
         </section>
 
         <section className="panel chart-panel">
-          <TideChart state={state} now={now} timezone={station.timezone} />
+          <TideChart state={state} now={now} timezone={station.timezone} units={units} />
         </section>
 
-        <EventList station={station} now={now} />
+        <EventList station={station} now={now} units={units} />
 
         <footer>
           <p className="warn">
