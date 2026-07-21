@@ -5,11 +5,17 @@ export interface Saved {
   starred: string[];
   recent: string[];
   lastLocationSlug: string | null;
+  /** Place name -> station slug. A deliberate pick for a named place, not a coordinate. */
+  placeStations: Record<string, string>;
 }
 
 export const RECENT_LIMIT = 7;
 
-const EMPTY: Saved = { starred: [], recent: [], lastLocationSlug: null };
+const EMPTY: Saved = { starred: [], recent: [], lastLocationSlug: null, placeStations: {} };
+
+function isPlaceStations(value: unknown): value is Record<string, string> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export function loadSaved(): Saved {
   const raw = localStorage.getItem(KEY);
@@ -20,6 +26,7 @@ export function loadSaved(): Saved {
       starred: Array.isArray(parsed?.starred) ? parsed.starred : [],
       recent: Array.isArray(parsed?.recent) ? parsed.recent : [],
       lastLocationSlug: typeof parsed?.lastLocationSlug === "string" ? parsed.lastLocationSlug : null,
+      placeStations: isPlaceStations(parsed?.placeStations) ? parsed.placeStations : {},
     };
   } catch {
     // A corrupted store reads as empty rather than throwing into the render path.
@@ -73,4 +80,14 @@ export function rememberLocation(slug: string): Saved {
   // The location moved: the previous match demotes to recent rather than vanishing.
   const recent = saved.lastLocationSlug ? withRecent(saved, saved.lastLocationSlug) : saved.recent;
   return write({ ...saved, recent, lastLocationSlug: slug });
+}
+
+/** "In `place`, use this station" — keyed to a name, not coordinates, so it survives drift. */
+export function setPlaceStation(place: string, slug: string): Saved {
+  const saved = loadSaved();
+  return write({ ...saved, placeStations: { ...saved.placeStations, [place]: slug } });
+}
+
+export function getPlaceStation(place: string): string | null {
+  return loadSaved().placeStations[place] ?? null;
 }

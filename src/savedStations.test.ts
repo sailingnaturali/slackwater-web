@@ -1,11 +1,21 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { loadSaved, star, unstar, visit, forget, rememberLocation, RECENT_LIMIT } from "./savedStations";
+import {
+  loadSaved,
+  star,
+  unstar,
+  visit,
+  forget,
+  rememberLocation,
+  setPlaceStation,
+  getPlaceStation,
+  RECENT_LIMIT,
+} from "./savedStations";
 
 beforeEach(() => localStorage.clear());
 
 describe("saved stations", () => {
   it("starts empty", () => {
-    expect(loadSaved()).toEqual({ starred: [], recent: [], lastLocationSlug: null });
+    expect(loadSaved()).toEqual({ starred: [], recent: [], lastLocationSlug: null, placeStations: {} });
   });
 
   it("stars and un-stars", () => {
@@ -66,6 +76,22 @@ describe("saved stations", () => {
 
   it("survives a corrupted store rather than throwing", () => {
     localStorage.setItem("slackwater.saved", "{ not json");
-    expect(loadSaved()).toEqual({ starred: [], recent: [], lastLocationSlug: null });
+    expect(loadSaved()).toEqual({ starred: [], recent: [], lastLocationSlug: null, placeStations: {} });
+  });
+
+  it("sets and gets a place's station choice", () => {
+    expect(getPlaceStation("Victoria")).toBeNull();
+    setPlaceStation("Victoria", "victoria-inner-harbour");
+    expect(getPlaceStation("Victoria")).toBe("victoria-inner-harbour");
+  });
+
+  it("keeps one place's choice from leaking into another's", () => {
+    setPlaceStation("Victoria", "victoria-inner-harbour");
+    expect(getPlaceStation("Seattle")).toBeNull();
+  });
+
+  it("survives a corrupted placeStations value rather than throwing", () => {
+    localStorage.setItem("slackwater.saved", JSON.stringify({ placeStations: ["not", "a", "map"] }));
+    expect(loadSaved().placeStations).toEqual({});
   });
 });
