@@ -1,83 +1,137 @@
-import { useMemo, useState } from "react";
-import { distanceKm, resolvedStations, type Station } from "./tides";
-import { distanceUnit, formatDistance, type Units } from "./units";
+import { useState } from "react";
+import { distanceKm, predict, type Match, type ResolvedStation } from "./tides";
+import type { Units } from "./units";
+import type { NearbyStation } from "./nearby";
+import { StationCard } from "./StationCard";
+import { LocationCard } from "./LocationCard";
 
-/**
- * The station list — the fallback when location is declined, and the switcher
- * everywhere else.
- *
- * On desktop this is a permanent sidebar; on a phone it is a sheet you open.
- * Same component either way, so the two never drift apart.
- */
-export function StationList({
-  selected,
-  origin,
-  units,
-  onSelect,
-}: {
-  selected: Station;
-  origin: { latitude: number; longitude: number } | null;
-  units: Units;
-  onSelect: (station: Station) => void;
-}) {
-  const [query, setQuery] = useState("");
+export interface LocatedStation {
+  station: ResolvedStation;
+  match: Match;
+}
 
-  const listed = useMemo(() => {
-    const named = resolvedStations.map((station) => ({
-      station,
-      km: origin ? distanceKm(origin, station) : null,
-    }));
+interface Entry {
+  station: ResolvedStation;
+  km: number | null;
+}
 
-    const needle = query.trim().toLowerCase();
-    const matched = needle
-      ? named.filter(
-          (entry) =>
-            entry.station.name.toLowerCase().includes(needle) ||
-            entry.station.context.toLowerCase().includes(needle),
-        )
-      : named;
-
-    // Nearest-first is the useful order when we know where you are; otherwise
-    // alphabetical, because a distance from nowhere is noise.
-    return matched.sort((a, b) =>
+function withDistance(
+  stations: ResolvedStation[],
+  origin: { latitude: number; longitude: number } | null,
+): Entry[] {
+  return stations
+    .map((station) => ({ station, km: origin ? distanceKm(origin, station) : null }))
+    .sort((a, b) =>
       a.km != null && b.km != null ? a.km - b.km : a.station.name.localeCompare(b.station.name),
     );
-  }, [query, origin]);
+}
+
+/**
+ * The sidebar — grouped the way the iOS prototype groups it (spec §4), not a
+ * flat searchable dump. Search moves to its own screen in a later task; until
+ * that lands, reaching a station outside these four groups has no path from
+ * here, which is a known gap of this step rather than an oversight.
+ *
+ * Groups and their data come in as props — starred, recent, nearby, and the
+ * located station — so this renders and can be tested with no localStorage
+ * involved. Wiring those to persistence is a separate task.
+ */
+export function StationList({
+  located,
+  starred,
+  recent,
+  nearby,
+  origin,
+  selectedId,
+  units,
+  now,
+  onSelect,
+}: {
+  located: LocatedStation | null;
+  starred: ResolvedStation[];
+  recent: ResolvedStation[];
+  nearby: NearbyStation<ResolvedStation>[];
+  origin: { latitude: number; longitude: number } | null;
+  selectedId: string;
+  units: Units;
+  now: Date;
+  onSelect: (station: ResolvedStation) => void;
+}) {
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+
+  // A station already shown above is noise if it is shown again below —
+  // the located station takes precedence, then starred, then recent.
+  const used = new Set<string>();
+  if (located) used.add(located.station.id);
+
+  const starredEntries = withDistance(starred, origin).filter((e) => !used.has(e.station.id));
+  for (const e of starredEntries) used.add(e.station.id);
+
+  const recentEntries = recent
+    .filter((s) => !used.has(s.id))
+    .map((station): Entry => ({ station, km: origin ? distanceKm(origin, station) : null }));
+  for (const e of recentEntries) used.add(e.station.id);
+
+  const nearbyEntries: Entry[] = nearby
+    .filter((n) => !used.has(n.station.id))
+    .map((n) => ({ station: n.station, km: n.km }));
+
+  const groups: { key: string; label: string; entries: Entry[]; limit: number | null }[] = [
+    { key: "starred", label: "Starred", entries: starredEntries, limit: null },
+    { key: "recent", label: "Recent", entries: recentEntries, limit: 7 },
+    { key: "nearby", label: "Nearby", entries: nearbyEntries, limit: 3 },
+  ];
 
   return (
     <div className="stations">
-      <div className="search">
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search stations"
-          aria-label="Search stations"
+      <section className="station-group">
+        <p className="eyebrow">Current location</p>
+        <LocationCard
+          match={located?.match ?? null}
+          station={located?.station ?? null}
+          state={located ? predict(located.station, now) : null}
+          units={units}
+          selected={located?.station.id === selectedId}
+          onSelect={() => located && onSelect(located.station)}
         />
-      </div>
+      </section>
 
-      <ol className="station-rows">
-        {listed.map(({ station, km }) => (
-          <li key={station.id}>
-            <button
-              className={station.id === selected.id ? "station current" : "station"}
-              onClick={() => onSelect(station)}
-              aria-current={station.id === selected.id ? "true" : undefined}
-            >
-              <span className="station-name">
-                <span className="primary">{station.name}</span>
-                {station.context && <span className="context">{station.context}</span>}
-              </span>
-              {km != null && (
-                <span className="km">
-                  {formatDistance(km, units)} {distanceUnit(units)}
-                </span>
+      {groups.map((group) => {
+        if (!group.entries.length) return null;
+        const isExpanded = expanded.has(group.key);
+        const overLimit = group.limit != null && group.entries.length > group.limit;
+        const visible = overLimit && !isExpanded ? group.entries.slice(0, group.limit!) : group.entries;
+
+        return (
+          <section className="station-group" key={group.key}>
+            <div className="station-group-head">
+              <p className="eyebrow">{group.label}</p>
+              {overLimit && !isExpanded && (
+                <button
+                  className="all-toggle"
+                  onClick={() => setExpanded((prev) => new Set(prev).add(group.key))}
+                >
+                  All
+                </button>
               )}
-            </button>
-          </li>
-        ))}
-        {!listed.length && <li className="none">Nothing matches “{query}”.</li>}
-      </ol>
+            </div>
+            <ol className="station-cards">
+              {visible.map(({ station, km }) => (
+                <li key={station.id}>
+                  <StationCard
+                    station={station}
+                    km={km ?? undefined}
+                    state={predict(station, now)}
+                    units={units}
+                    selected={station.id === selectedId}
+                    onSelect={() => onSelect(station)}
+                  />
+                </li>
+              ))}
+            </ol>
+          </section>
+        );
+      })}
     </div>
   );
 }

@@ -2,11 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { matchStation, predict, resolvedStations, stations, type Match, type Station } from "./tides";
 import { TideChart } from "./TideChart";
 import { EventList } from "./EventList";
-import { StationList } from "./StationList";
+import { StationList, type LocatedStation } from "./StationList";
+import { nearestStations } from "./nearby";
 import { LocationGate, type GateResult } from "./LocationGate";
 import { Settings } from "./Settings";
 import { usePreferences } from "./usePreferences";
 import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
+
+// NEARBY's "All" shows at most 20 (spec §4) — beyond that it stops being
+// nearby and becomes the full list, which is what Search (a later task) is
+// for. Capped here so StationList never has to know the number came from
+// somewhere else.
+const NEARBY_ALL_LIMIT = 20;
 
 /** Friday Harbor: central, well-measured, and inside the bundled coverage. */
 const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];
@@ -24,6 +31,10 @@ export function App() {
   const [gated, setGated] = useState(() => !localStorage.getItem(SEEN_GATE));
   const [station, setStation] = useState<Station>(FALLBACK);
   const [match, setMatch] = useState<Match | null>(null);
+  // Separate from `match`: CURRENT LOCATION keeps showing where you are even
+  // after you pick a different station to look at, so it survives `choose()`
+  // resetting `match` (which only hedges the hero's currently-viewed badge).
+  const [located, setLocated] = useState<LocatedStation | null>(null);
   const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [listOpen, setListOpen] = useState(false);
@@ -44,6 +55,8 @@ export function App() {
       if (found) {
         setStation(found.station);
         setMatch(found);
+        const resolved = resolvedStations.find((s) => s.id === found.station.id);
+        if (resolved) setLocated({ station: resolved, match: found });
       }
     } else {
       // Declined: the list is the answer, not an empty screen.
@@ -89,7 +102,18 @@ export function App() {
             ✕
           </button>
         </div>
-        <StationList selected={station} origin={origin} units={units} onSelect={choose} />
+        <StationList
+          located={located}
+          // Task 4a wires real starred/recent persistence; empty until then.
+          starred={[]}
+          recent={[]}
+          nearby={origin ? nearestStations(origin, resolvedStations, NEARBY_ALL_LIMIT) : []}
+          origin={origin}
+          selectedId={station.id}
+          units={units}
+          now={now}
+          onSelect={choose}
+        />
         <div className="sidebar-foot">
           <button className="settings-entry" onClick={() => setSettingsOpen(true)}>
             Settings

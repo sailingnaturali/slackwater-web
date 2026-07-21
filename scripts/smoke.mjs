@@ -89,17 +89,27 @@ async function main() {
       throw new Error(`expected the gate heading, got: ${JSON.stringify(gateHeading)}`);
     }
 
-    // Decline location -> station list path (spec §5e: never an empty screen).
+    // Decline location -> the sidebar's amber unavailable card (spec §5e:
+    // never an empty screen). With no starred/recent/nearby data yet (Task
+    // 4a wires persistence; this is a known transitional gap until then and
+    // Search, its own task, is the escape hatch to every other station),
+    // CURRENT LOCATION's unavailable state is the only sidebar content, so
+    // that real text rendering is what proves the page did not blank out.
     const declineButton = await page.$$eval("button", (buttons) =>
       buttons.findIndex((b) => b.textContent?.includes("Choose a station instead")),
     );
     if (declineButton === -1) throw new Error('no "Choose a station instead" button found');
     const buttons = await page.$$("button");
     await buttons[declineButton].click();
-    await page.waitForSelector(".station-rows .station-name", { timeout: 5_000 });
+    await page.waitForSelector(".location-card.unavailable .location-title", { timeout: 5_000 });
 
-    const stationName = await page.$eval(".station-rows .station-name .primary", (el) => el.textContent);
-    if (!stationName || !stationName.trim()) throw new Error("station list rendered with no station name");
+    const locationTitle = await page.$eval(
+      ".location-card.unavailable .location-title",
+      (el) => el.textContent,
+    );
+    if (locationTitle?.trim() !== "Location unavailable") {
+      throw new Error(`expected the unavailable-location card, got: ${JSON.stringify(locationTitle)}`);
+    }
 
     const tideHeight = await page.$eval(".reading .value", (el) => el.textContent);
     if (!/\d/.test(tideHeight ?? "")) throw new Error(`expected a tide height, got: ${JSON.stringify(tideHeight)}`);
@@ -110,7 +120,7 @@ async function main() {
       throw new Error(`page reported errors:\n${errors.join("\n")}`);
     }
 
-    console.log(`smoke OK — station "${stationName.trim()}", tide height "${tideHeight}"`);
+    console.log(`smoke OK — location card "${locationTitle.trim()}", tide height "${tideHeight}"`);
   } finally {
     if (browser) await browser.close();
     // Negative pid targets the whole detached process group (npx + vite),
