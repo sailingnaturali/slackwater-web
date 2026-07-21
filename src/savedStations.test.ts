@@ -96,18 +96,23 @@ describe("saved stations", () => {
     expect(loadSaved().placeStations).toEqual({});
   });
 
-  it(`caps starred at ${STARRED_LIMIT}, demoting the oldest star to recent`, () => {
-    for (let i = 0; i < STARRED_LIMIT; i++) star(`star-${i}`);
-    const before = loadSaved();
-    expect(before.starred.length).toBe(STARRED_LIMIT);
+  it(`keeps every star past ${STARRED_LIMIT} — storage is unbounded, only display is capped`, () => {
+    for (let i = 0; i < STARRED_LIMIT + 1; i++) star(`star-${i}`);
+    const after = loadSaved();
 
-    const after = star("star-overflow");
+    expect(after.starred.length).toBe(STARRED_LIMIT + 1);
+    expect(after.starred).toContain("star-0");
+    expect(after.starred).toContain(`star-${STARRED_LIMIT}`);
+  });
 
-    expect(after.starred.length).toBe(STARRED_LIMIT);
-    expect(after.starred).not.toContain("star-0");
-    expect(after.starred).toContain("star-overflow");
-    // The oldest star fell off, not the newest.
-    expect(after.recent).toContain("star-0");
-    expect(after.recent).not.toContain(`star-${STARRED_LIMIT - 1}`);
+  it("does not move anything to recent when starring past the display limit", () => {
+    for (let i = 0; i < STARRED_LIMIT + 1; i++) star(`star-${i}`);
+    expect(loadSaved().recent).toEqual([]);
+  });
+
+  it("still de-duplicates the starred list", () => {
+    star("everett");
+    const after = star("everett");
+    expect(after.starred).toEqual(["everett"]);
   });
 });

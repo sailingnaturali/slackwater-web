@@ -92,7 +92,13 @@ export function StationList({
     limit: number | null;
     allLimit?: number;
   }[] = [
-    { key: "starred", label: "Starred", entries: starredEntries, limit: STARRED_LIMIT },
+    {
+      key: "starred",
+      label: "Starred",
+      entries: starredEntries,
+      limit: STARRED_LIMIT,
+      allLimit: STARRED_LIMIT,
+    },
     { key: "recent", label: "Recent", entries: recentEntries, limit: RECENT_LIMIT },
     { key: "nearby", label: "Nearby", entries: nearbyEntries, limit: 3, allLimit: NEARBY_ALL_LIMIT },
   ];

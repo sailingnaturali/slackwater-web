@@ -12,9 +12,9 @@ export interface Saved {
 export const RECENT_LIMIT = 7;
 
 /**
- * A performance bound, not a judgement about how many stations anyone
- * needs — 50 is far past real use and cheap to render. Overflow follows
- * the same demotion chain as un-starring (see `star` below).
+ * Display-only: how many starred stations a view renders at once (see
+ * StationList's "All"). Storage is unbounded — this bounds rendering, not
+ * what's kept.
  */
 export const STARRED_LIMIT = 50;
 
@@ -65,15 +65,8 @@ export function star(slug: string): Saved {
   if (saved.starred.includes(slug)) {
     return write({ ...saved, recent: saved.recent.filter((s) => s !== slug) });
   }
-  const appended = [...saved.starred, slug];
-  // Starring past the cap drops the oldest star to recent — the same
-  // demotion chain as un-starring. A deliberate keep is never silently
-  // discarded, it just moves down one rung.
-  const overflow = appended.length > STARRED_LIMIT ? appended[0] : null;
-  const starred = overflow ? appended.slice(1) : appended;
-  const recent = overflow
-    ? [overflow, ...saved.recent.filter((s) => s !== overflow)].slice(0, RECENT_LIMIT)
-    : saved.recent.filter((s) => s !== slug);
+  const starred = [...saved.starred, slug];
+  const recent = saved.recent.filter((s) => s !== slug);
   return write({ ...saved, starred, recent });
 }
 

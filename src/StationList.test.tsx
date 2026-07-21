@@ -119,9 +119,9 @@ describe("StationList grouping", () => {
   });
 
   it("offers 'All' for starred only once it holds more than the 50 cap", () => {
-    // Component-level invariant, exercised with a synthetic list bigger than
-    // the storage layer would ever actually hand it (savedStations.ts caps
-    // starred at 50 before this ever renders).
+    // Component-level invariant. Storage (savedStations.ts) is unbounded —
+    // a user can star well past 50 — so the render bound has to hold here,
+    // not upstream.
     const many = Array.from({ length: 51 }, (_, i) => ({
       ...everett,
       id: `starred-${i}`,
@@ -157,6 +157,37 @@ describe("StationList grouping", () => {
       />,
     );
     expect(htmlAt).not.toContain("all-toggle");
+  });
+
+  it("caps starred's 'All' at 50 even with 60 stored stars", () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({
+      ...everett,
+      id: `starred-${i}`,
+      slug: `starred-${i}`,
+    }));
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() => {
+      root!.render(
+        <StationList
+          located={null}
+          starred={many}
+          recent={[]}
+          nearby={[]}
+          origin={null}
+          selectedId={fridayHarbor.id}
+          units="imperial"
+          now={now}
+          onSelect={() => {}}
+        />,
+      );
+    });
+    act(() => {
+      container!.querySelector(".all-toggle")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(container!.querySelectorAll(".station-card").length).toBe(50);
   });
 
   it("caps nearby's 'All' at 20 even when more stations are handed to it", () => {
