@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Slackwater</title>
+    <!--
+      GitHub Pages has no server-side rewrites, so a deep link like
+      /tide/everett/2026-07-20T14:35-07:00 404s on a hard refresh — Pages
+      only ever serves index.html for the exact path "/". This is the
+      standard SPA-on-Pages workaround: redirect to "/" but carry the
+      original path (and query/hash) in the query string, and main.tsx
+      restores it with history.replaceState before the app renders, so the
+      URL a user reloaded still resolves to the same station and moment.
+    -->
+    <script>
+      var path = location.pathname + location.search + location.hash;
+      location.replace("/?redirect=" + encodeURIComponent(path));
+    </script>
+  </head>
+  <body></body>
+</html>

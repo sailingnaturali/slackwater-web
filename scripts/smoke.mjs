@@ -150,7 +150,36 @@ async function main() {
       { timeout: 5_000 },
     );
 
-    // ponytail: deep-link coverage deferred until Task 6 lands a route to link to.
+    // Task 6: a deep link renders its station directly, no navigation
+    // through it required. A fresh tab, not the page above — this is the
+    // feature (opening a shared URL cold), not a continuation of the
+    // in-app session. Without the URL a fresh load falls back to the
+    // gate's default station (Friday Harbor, not Everett), so this also
+    // proves the route — not leftover state — picked the station.
+    const deepLinkErrors = [];
+    const deepLinkPage = await browser.newPage();
+    deepLinkPage.on("pageerror", (err) => deepLinkErrors.push(`pageerror: ${err.message}`));
+    deepLinkPage.on("console", (msg) => {
+      if (msg.type() === "error") deepLinkErrors.push(`console.error: ${msg.text()}`);
+    });
+    await deepLinkPage.goto(`${URL}tide/everett/2026-07-20T14:35-07:00`, {
+      waitUntil: "domcontentloaded",
+    });
+    if (deepLinkErrors.length) {
+      throw new Error(`deep link page reported errors:\n${deepLinkErrors.join("\n")}`);
+    }
+    await deepLinkPage.waitForSelector(".place h1", { timeout: 10_000 });
+    const deepLinkStation = await deepLinkPage.$eval(".place h1", (el) => el.textContent);
+    if (deepLinkStation !== "Everett") {
+      throw new Error(
+        `deep link /tide/everett/2026-07-20T14:35-07:00 expected Everett, got: ${JSON.stringify(deepLinkStation)}`,
+      );
+    }
+    const deepLinkHeight = await deepLinkPage.$eval(".reading .value", (el) => el.textContent);
+    if (!/\d/.test(deepLinkHeight ?? "")) {
+      throw new Error(`deep link expected a tide height, got: ${JSON.stringify(deepLinkHeight)}`);
+    }
+    await deepLinkPage.close();
 
     if (errors.length) {
       throw new Error(`page reported errors:\n${errors.join("\n")}`);
@@ -158,7 +187,8 @@ async function main() {
 
     console.log(
       `smoke OK — location card "${locationTitle.trim()}", tide height "${tideHeight}", ` +
-        `search reached "Everett" from ${popularCount} POPULAR stations`,
+        `search reached "Everett" from ${popularCount} POPULAR stations, ` +
+        `deep link rendered "${deepLinkStation}" at "${deepLinkHeight}"`,
     );
   } finally {
     if (browser) await browser.close();

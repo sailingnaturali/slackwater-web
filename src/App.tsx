@@ -23,6 +23,7 @@ import { usePreferences } from "./usePreferences";
 import { stationsNear } from "./place";
 import { useLocation } from "./useLocation";
 import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
+import { parseUrl, buildUrl } from "./url";
 import {
   loadSaved,
   star,
@@ -45,9 +46,14 @@ const QUALITY_COPY: Record<Match["quality"], string> = {
 };
 
 export function App() {
+  // Parsed once, at mount, from whatever URL the page loaded with — a shared
+  // deep link. Later navigation goes through `history.replaceState` below,
+  // not another read of `window.location`.
+  const [urlMatch] = useState(() => parseUrl(window.location.pathname, resolvedStations));
+
   // Returning visitors skip the ask; the browser remembers the grant anyway.
   const [gated, setGated] = useState(() => !localStorage.getItem(SEEN_GATE));
-  const [station, setStation] = useState<Station>(FALLBACK);
+  const [station, setStation] = useState<Station>(() => urlMatch?.station ?? FALLBACK);
   const [match, setMatch] = useState<Match | null>(null);
   const [saved, setSaved] = useState<Saved>(loadSaved);
   // Separate from `match`: CURRENT LOCATION keeps showing where you are even
@@ -65,7 +71,7 @@ export function App() {
     return resolved && match ? { station: resolved, match } : null;
   });
   const [origin, setOrigin] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => urlMatch?.t ?? new Date());
   const [listOpen, setListOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -75,6 +81,17 @@ export function App() {
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(timer);
+  }, []);
+
+  // A former-slug or provider-id URL still resolves (`findStation` in
+  // src/url.ts) but isn't the link anyone should keep sharing — swap it for
+  // the canonical slug without adding a history entry.
+  useEffect(() => {
+    if (urlMatch && !urlMatch.canonical) {
+      history.replaceState(null, "", buildUrl(urlMatch.station, urlMatch.t));
+    }
+    // urlMatch is fixed at mount (see its useState above); this only ever
+    // needs to run once.
   }, []);
 
   // Disabled until the gate resolves: the first-ever ask belongs to
@@ -165,7 +182,12 @@ export function App() {
     [saved.recent],
   );
 
-  if (gated) return <LocationGate onResolve={resolveGate} />;
+  // A shared link skips the explain-first screen, first visit or not — the
+  // whole point of a deep link is that it opens the station it names, not a
+  // gate standing in front of it. `gated` itself stays true underneath (not
+  // shown, but not resolved either), so `useLocation(!gated)` — disabled
+  // until the gate resolves — still never fires a silent permission prompt.
+  if (gated && !urlMatch) return <LocationGate onResolve={resolveGate} />;
 
   if (searchOpen) {
     return (
@@ -202,6 +224,9 @@ export function App() {
     setMatch(null);
     setListOpen(false);
     setSaved(visit(next.slug));
+    // A deliberate pick is "now" for that station — no moment to carry yet
+    // (the readout line, which will, is Task 7).
+    history.replaceState(null, "", buildUrl(next, null));
   }
 
   function toggleStar(target: ResolvedStation) {
@@ -273,7 +298,10 @@ export function App() {
                 current={live.place.station}
                 alternatives={live.place.alternatives}
                 units={units}
-                onChoose={(next) => setStation(next)}
+                onChoose={(next) => {
+                  setStation(next);
+                  history.replaceState(null, "", buildUrl(next, null));
+                }}
               />
             )}
           </div>
