@@ -31,8 +31,11 @@ export default defineConfig({
       },
       workbox: {
         // The station data and the engine are the whole product offline, so they
-        // are precached rather than fetched on demand.
-        globPatterns: ["**/*.{js,css,html,svg,png,json}"],
+        // are precached rather than fetched on demand. woff2 is in here too —
+        // the self-hosted fonts (see README: no webfont request, on purpose)
+        // otherwise fail with ERR_INTERNET_DISCONNECTED the moment the network
+        // actually goes away, which the offline smoke check caught.
+        globPatterns: ["**/*.{js,css,html,svg,png,json,woff2}"],
       },
     }),
   ],

@@ -181,6 +181,83 @@ async function main() {
     }
     await deepLinkPage.close();
 
+    // Task 9: the app's whole claim is that it works with no signal. A fresh
+    // page (not the ones above, which have already navigated around and
+    // could be carrying in-memory state that masks a real offline failure) —
+    // load it online first so the service worker installs, precaches, and
+    // claims the client, then cut the network at the protocol level and
+    // prove the app still renders after a reload.
+    const offlineErrors = [];
+    const offlinePage = await browser.newPage();
+    await offlinePage.goto(URL, { waitUntil: "domcontentloaded" });
+
+    // Wait for the service worker to actually claim this page (skipWaiting +
+    // clientsClaim are both on) rather than just registering — a reload
+    // before this point would 404 offline and prove nothing.
+    await offlinePage.waitForFunction(() => navigator.serviceWorker.controller != null, {
+      timeout: 15_000,
+    });
+
+    const cdp = await offlinePage.createCDPSession();
+    await cdp.send("Network.enable");
+    await cdp.send("Network.emulateNetworkConditions", {
+      offline: true,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    });
+
+    // Prove the network is really down before trusting anything below.
+    // navigator.onLine lies under this exact emulation (reports true even
+    // with the network cut) — this project has been fooled by it before, so
+    // only a real fetch failure counts as proof.
+    const networkState = await offlinePage.evaluate(() =>
+      fetch("https://example.com/" + Math.random())
+        .then(() => "UP")
+        .catch(() => "down"),
+    );
+    if (networkState !== "down") {
+      throw new Error(`network emulation did not take effect: fetch reported "${networkState}"`);
+    }
+
+    // Listeners attach only now: the proof fetch above deliberately targets an
+    // unreachable origin, and Chrome logs its own "Failed to load resource"
+    // line for that regardless of the JS-level .catch() — a false positive if
+    // counted as an app error. Real app breakage during the reload below is
+    // what these are for.
+    offlinePage.on("pageerror", (err) => offlineErrors.push(`pageerror: ${err.message}`));
+    offlinePage.on("console", (msg) => {
+      if (msg.type() === "error") offlineErrors.push(`console.error: ${msg.text()}`);
+    });
+
+    await offlinePage.reload({ waitUntil: "domcontentloaded" });
+
+    // A blank page still has a valid document, so assert real content, not
+    // just that the reload didn't throw.
+    await offlinePage.waitForSelector(".place h1", { timeout: 10_000 });
+    const offlineStationName = await offlinePage.$eval(".place h1", (el) => el.textContent);
+    if (!offlineStationName) throw new Error("offline reload: no station name rendered");
+
+    const offlineHeight = await offlinePage.$eval(".reading .value", (el) => el.textContent);
+    if (!/\d/.test(offlineHeight ?? "")) {
+      throw new Error(`offline reload expected a tide height, got: ${JSON.stringify(offlineHeight)}`);
+    }
+
+    const offlineEventCount = (await offlinePage.$$(".event-rows .event")).length;
+    if (offlineEventCount === 0) throw new Error("offline reload: the day's events did not render");
+
+    await offlinePage.waitForSelector(".chart", { timeout: 5_000 });
+
+    const footerText = await offlinePage.$$eval(".muted", (els) => els.map((e) => e.textContent).join(" "));
+    if (!/\b41\b/.test(footerText)) {
+      throw new Error(`offline reload: station count missing from footer, got: ${JSON.stringify(footerText)}`);
+    }
+
+    if (offlineErrors.length) {
+      throw new Error(`offline reload reported errors:\n${offlineErrors.join("\n")}`);
+    }
+    await offlinePage.close();
+
     if (errors.length) {
       throw new Error(`page reported errors:\n${errors.join("\n")}`);
     }
@@ -188,7 +265,9 @@ async function main() {
     console.log(
       `smoke OK — location card "${locationTitle.trim()}", tide height "${tideHeight}", ` +
         `search reached "Everett" from ${popularCount} POPULAR stations, ` +
-        `deep link rendered "${deepLinkStation}" at "${deepLinkHeight}"`,
+        `deep link rendered "${deepLinkStation}" at "${deepLinkHeight}", ` +
+        `offline reload (network proved "${networkState}") rendered "${offlineStationName}" ` +
+        `at "${offlineHeight}" with ${offlineEventCount} events and all 41 stations counted`,
     );
   } finally {
     if (browser) await browser.close();

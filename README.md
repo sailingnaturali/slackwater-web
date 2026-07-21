@@ -32,6 +32,21 @@ So Canadian coverage is coming from CHS online instead, marked at lower confiden
 licence filter runs in CI on every build rather than once on a laptop, and there is a test
 asserting nothing else got in.
 
+## URLs
+
+`/tide/<slug>` opens a station directly — `/tide/friday-harbor`, `/tide/everett`. Add an
+ISO timestamp with its offset, `/tide/<slug>/<ISO-with-offset>` (e.g.
+`/tide/everett/2026-07-20T14:35-07:00`), to share a specific moment on the curve rather than
+"now". A former slug or a raw provider id (`noaa/9447659`) still resolves for links already
+out there, but redirects to the canonical slug. An unparseable or too-old timestamp is
+dropped rather than failing the route — you still get the station, just at "now".
+
+## Units
+
+Tide height and distance default to **feet and nautical miles**; switch to metres and
+kilometres in Settings (below the station list). The choice is saved to `localStorage` and
+applies everywhere the app shows a number — it is not a per-station or per-session setting.
+
 ## Design
 
 Type, palette and idiom come from the Sailing Naturali design system — Fraunces display,
@@ -43,10 +58,11 @@ charter site and this app read as one brand.
 Two deliberate departures:
 
 - **Fonts are self-hosted**, where the web repo `@import`s them from Google. A webfont
-  request would be a network dependency in an app whose promise is not needing one.
-- **There is a dark scheme.** The house style is paper-white; this gets read at 05:00 in a
-  cockpit, where that destroys night vision. Dark mode uses the dark end of the same water
-  ramp — same palette, same type, inverted ground — and follows the device setting.
+  request would be a network dependency in an app whose promise is not needing one — and the
+  PWA precache list includes the font files themselves for exactly that reason.
+- **Dark is the only supported scheme.** The house style is paper-white; this gets read at
+  05:00 in a cockpit, where that destroys night vision. There is no light mode and no
+  device-setting toggle — `color-scheme: dark` is unconditional.
 
 ## Station match quality
 
