@@ -49,7 +49,15 @@ async function main() {
   try {
     await waitForServer(URL);
 
-    browser = await puppeteer.launch({ executablePath: CHROME_PATH, headless: true });
+    browser = await puppeteer.launch({
+      executablePath: CHROME_PATH,
+      headless: true,
+      // ponytail: CI runners (GitHub Actions ubuntu-latest) disable the
+      // unprivileged user namespace Chromium's sandbox needs, so it refuses
+      // to start at all without this. Fine here — disposable test browser,
+      // not a general-purpose browsing session.
+      args: ["--no-sandbox"],
+    });
     const page = await browser.newPage();
     page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
     page.on("console", (msg) => {
