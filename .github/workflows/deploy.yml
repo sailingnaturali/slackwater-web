@@ -26,8 +26,15 @@ jobs:
       - run: npm ci
       # The station bundle is generated, not committed — the licence filter that
       # decides what ships has to run on every build, not once on a laptop.
-      - run: npm test
+      # Build before test: the bundle check (src/bundle.test.ts) needs a dist/
+      # to inspect, or it would vacuously pass on a page that never got built.
       - run: npm run build
+      - run: npm test
+      - uses: browser-actions/setup-chrome@v1
+        id: setup-chrome
+      - run: npm run smoke
+        env:
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

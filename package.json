@@ -8,7 +8,8 @@
     "dev": "npm run build:stations && vite",
     "build": "npm run build:stations && tsc && vite build",
     "preview": "vite preview",
-    "test": "npm run build:stations && vitest run"
+    "test": "npm run build:stations && vitest run",
+    "smoke": "npm run build && node scripts/smoke.mjs"
   },
   "repository": {
     "type": "git",
@@ -37,6 +38,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "puppeteer-core": "^25.3.0",
     "typescript": "^7.0.2",
     "vite": "^8.1.5",
     "vite-plugin-pwa": "^1.3.0",
