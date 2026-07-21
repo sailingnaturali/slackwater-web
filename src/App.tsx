@@ -16,6 +16,7 @@ import { nearestStations } from "./nearby";
 import { LocationGate, type GateResult } from "./LocationGate";
 import { Search } from "./SearchScreen";
 import { Settings } from "./Settings";
+import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
 import { useLocation } from "./useLocation";
 import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
@@ -242,6 +243,15 @@ export function App() {
                 {formatDistance(match.distanceKm, units)} {distanceUnit(units)} away ·{" "}
                 {QUALITY_COPY[match.quality]}
               </p>
+            )}
+            {match && live.place && (
+              <StationChooser
+                place={live.place.place}
+                current={live.place.station}
+                alternatives={live.place.alternatives}
+                units={units}
+                onChoose={(next) => setStation(next)}
+              />
             )}
           </div>
 

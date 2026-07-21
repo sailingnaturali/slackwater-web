@@ -172,7 +172,7 @@ export interface Match {
 }
 
 /** M2 phase spread, in minutes, across the candidates nearest a position. */
-function m2SpreadMinutes(candidates: Station[]): number {
+export function m2SpreadMinutes(candidates: Station[]): number {
   const phases = candidates
     .map((s) => s.constituents.find((c) => c.name === "M2")?.phase)
     .filter((p): p is number => p != null);
@@ -181,6 +181,23 @@ function m2SpreadMinutes(candidates: Station[]): number {
   const spread = Math.max(...phases) - Math.min(...phases);
   const wrapped = Math.min(spread, 360 - spread);
   return (wrapped / 28.9841042) * 60;
+}
+
+/**
+ * Buckets a distance + M2 gradient spread into the three user-legible
+ * qualities (§5f). Pulled out of `matchStation` so anything grading a
+ * specific candidate — not just the single nearest pick — uses the same
+ * thresholds rather than a second copy of them.
+ */
+export function matchQuality(distanceKm: number, spreadMinutes: number): Match["quality"] {
+  if (distanceKm < 2) {
+    // Standing at the station: the gradient describes the risk of snapping
+    // across it, and there is no snap to make. Distance wins outright here.
+    return "good";
+  }
+  if (distanceKm > 40) return "nearest";
+  if (spreadMinutes > 20 || distanceKm > 10) return "approximate";
+  return "good";
 }
 
 /**
@@ -199,18 +216,5 @@ export function matchStation(position: { latitude: number; longitude: number }):
   const [best] = ranked;
   const spread = m2SpreadMinutes(ranked.slice(0, 3).map((r) => r.station));
 
-  let quality: Match["quality"];
-  if (best.distanceKm < 2) {
-    // Standing at the station: the gradient describes the risk of snapping
-    // across it, and there is no snap to make. Distance wins outright here.
-    quality = "good";
-  } else if (best.distanceKm > 40) {
-    quality = "nearest";
-  } else if (spread > 20 || best.distanceKm > 10) {
-    quality = "approximate";
-  } else {
-    quality = "good";
-  }
-
-  return { ...best, quality };
+  return { ...best, quality: matchQuality(best.distanceKm, spread) };
 }
