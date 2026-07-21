@@ -37,8 +37,13 @@ function waitForServer(url, timeoutMs = 15_000) {
 }
 
 async function main() {
+  // detached: true makes this the leader of its own process group, so
+  // killing -server.pid below takes down vite's actual child process too —
+  // `npx vite preview` is two processes, and killing just the npx wrapper
+  // orphans a listening vite server that can hang the CI step waiting on it.
   const server = spawn("npx", ["vite", "preview", "--port", String(PORT), "--strictPort"], {
     stdio: "pipe",
+    detached: true,
   });
   let serverOutput = "";
   server.stdout.on("data", (d) => (serverOutput += d));
@@ -64,7 +69,11 @@ async function main() {
       if (msg.type() === "error") errors.push(`console.error: ${msg.text()}`);
     });
 
-    await page.goto(URL, { waitUntil: "networkidle0" });
+    // domcontentloaded, not networkidle0: the PWA's service-worker precaching
+    // keeps making requests, so the network never goes idle and networkidle0
+    // hung the CI job rather than failing it. The waitForSelector below is
+    // the actual "did it render" check anyway.
+    await page.goto(URL, { waitUntil: "domcontentloaded" });
 
     // A pageerror during initial render is the failure mode this test exists
     // for (fileURLToPath crashing the app before it ever paints) — surface it
@@ -72,7 +81,9 @@ async function main() {
     // useful "found nothing" symptom.
     if (errors.length) throw new Error(`page reported errors:\n${errors.join("\n")}`);
 
-    // Gate screen: real heading text, not just a non-empty document.
+    // Gate screen: real heading text, not just a non-empty document. A blank
+    // page never gets an h1, so this also catches the crash directly.
+    await page.waitForSelector("h1", { timeout: 10_000 });
     const gateHeading = await page.$eval("h1", (el) => el.textContent).catch(() => null);
     if (gateHeading !== "Tides that work with no signal.") {
       throw new Error(`expected the gate heading, got: ${JSON.stringify(gateHeading)}`);
@@ -102,11 +113,27 @@ async function main() {
     console.log(`smoke OK — station "${stationName.trim()}", tide height "${tideHeight}"`);
   } finally {
     if (browser) await browser.close();
-    server.kill();
+    // Negative pid targets the whole detached process group (npx + vite),
+    // not just the npx wrapper.
+    try {
+      process.kill(-server.pid, "SIGTERM");
+    } catch {
+      server.kill();
+    }
   }
 }
 
-main().catch((err) => {
-  console.error("SMOKE FAILED:", err.message);
+// Belt and suspenders on top of the per-step timeouts above: nothing here
+// should ever run this long, and a hang in CI is worse than a failure.
+const watchdog = setTimeout(() => {
+  console.error("SMOKE FAILED: timed out after 60s");
   process.exit(1);
-});
+}, 60_000);
+watchdog.unref();
+
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("SMOKE FAILED:", err.message);
+    process.exit(1);
+  });
