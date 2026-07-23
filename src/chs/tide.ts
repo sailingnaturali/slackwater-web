@@ -124,8 +124,15 @@ async function seriesForWindow(
     if (bucket) bucket.push(s);
     else buckets.set(d, [s]);
   }
-  for (const [d, slice] of buckets) {
-    await cache.set(dayKey(stationId, series, d), slice);
+  // Cache only `days` — the local days this call actually needs — not every
+  // bucket the raw response happens to touch. `from`/`to` are padded a full day
+  // beyond `start`/`end` on each side (see above), so every day in `days` is
+  // guaranteed to lie strictly inside the fetch window and be whole. The days
+  // at the fetch's own edges (`from`'s day and `to`'s day) are NOT in `days`
+  // and are only ever partially covered by this request — caching them under
+  // their full-day key would let a later call reuse an incomplete day forever.
+  for (const d of days) {
+    await cache.set(dayKey(stationId, series, d), buckets.get(d) ?? []);
   }
   return days.flatMap((d) => buckets.get(d) ?? []).filter(inRange(start, end));
 }

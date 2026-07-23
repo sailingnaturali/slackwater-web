@@ -5,7 +5,7 @@ import { localDay } from "../tides";
 import hilo from "./fixtures/victoria-wlp-hilo.json";
 import curve from "./fixtures/victoria-wlp.json";
 import stationList from "./fixtures/stations-sample.json";
-import type { IwlsSample, IwlsStationMeta } from "./client";
+import { fetchSeries, type IwlsSample, type IwlsStationMeta } from "./client";
 import type { ChsStation } from "../chsStations";
 
 const VICTORIA_ID = "5cebf1df3d0f4a073c4bbd1e";
@@ -25,10 +25,23 @@ function victoriaStation(): ChsStation {
   };
 }
 
+/**
+ * A fake fetch that respects `from`/`to` like the real IWLS API does — filters
+ * the fixture down to the requested instant range instead of returning the
+ * whole thing regardless of what was asked for. That's what lets the boundary
+ * test below expose a partial-day fetch; a mock that ignores the window can't.
+ */
 function fetchFixtures(): typeof fetch {
   return vi.fn(async (url: string) => {
-    const body = url.includes("wlp-hilo") ? hilo : curve;
-    return new Response(JSON.stringify(body), { status: 200 });
+    const body = (url.includes("wlp-hilo") ? hilo : curve) as IwlsSample[];
+    const params = new URL(url).searchParams;
+    const from = new Date(params.get("from")!).getTime();
+    const to = new Date(params.get("to")!).getTime();
+    const windowed = body.filter((s) => {
+      const t = new Date(s.eventDate).getTime();
+      return t >= from && t <= to;
+    });
+    return new Response(JSON.stringify(windowed), { status: 200 });
   }) as unknown as typeof fetch;
 }
 
@@ -158,4 +171,40 @@ it("a single day's slice is never enough to find `next` (bug 2, regression)", as
   expect(state.next!.time.toISOString()).toBe("2026-07-20T03:14:00.000Z");
   expect(state.next!.high).toBe(true);
   expect(state.rising).toBe(true);
+});
+
+it("never caches a fetch-boundary day that the fetch only partially covers (bug 3)", async () => {
+  const fetchFn = fetchFixtures();
+  const cache = memoryCache();
+  const station = victoriaStation();
+
+  // now1's padded fetch window is [2026-07-14T12:00Z, 2026-07-21T12:00Z] — a full
+  // 7-day span whose *last* touched local day, "2026-07-21", only gets samples up
+  // to noon (its fetch cutoff), not the whole day. "2026-07-21" isn't one of
+  // now1's own needed days (those are 07-15..07-17), so it's purely an incidental
+  // extra bucket from the wide padded fetch — exactly the class of day the bug
+  // caches as if complete.
+  const now1 = new Date("2026-07-16T06:00:00Z");
+  await chsTideDay(station, now1, { cache, fetchFn, stationList: stationList as IwlsStationMeta[] });
+
+  // now2's own needed days are exactly ["2026-07-19", "2026-07-20", "2026-07-21"] —
+  // it genuinely needs "2026-07-21" to be complete. Under the bug, all three are
+  // already cache HITs (from1 having stuffed "2026-07-21" in as a side effect), so
+  // this call never refetches and silently serves the partial day.
+  const now2 = new Date("2026-07-20T12:00:00Z");
+  await chsTideDay(station, now2, { cache, fetchFn, stationList: stationList as IwlsStationMeta[] });
+
+  const cachedBoundaryDay = (await cache.get(dayKey(VICTORIA_ID, "wlp", "2026-07-21"))) as IwlsSample[] | null;
+  expect(cachedBoundaryDay).not.toBeNull();
+
+  // What a direct, single-day fetch for "2026-07-21" alone would return — the
+  // ground truth for "this day is complete".
+  const dayStart = new Date("2026-07-21T07:00:00Z"); // local midnight, America/Vancouver (PDT)
+  const dayEnd = new Date(new Date("2026-07-22T07:00:00Z").getTime() - 1); // exclusive: next day's midnight belongs to that day
+  const direct = await fetchSeries(VICTORIA_ID, "wlp", dayStart, dayEnd, fetchFixtures());
+
+  // A cached "complete" day must never hold fewer samples than a direct fetch of
+  // that day alone — if it does, some incomplete boundary slice got cached as if
+  // it were the whole day.
+  expect(cachedBoundaryDay!.length).toBeGreaterThanOrEqual(direct.length);
 });
