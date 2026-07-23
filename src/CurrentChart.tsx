@@ -124,7 +124,8 @@ export function CurrentChart({
       <defs>
         {/* Flood above the zero line, ebb below - reuses the app's existing
             rising/falling semantic colours rather than a duplicate pair. */}
-        <linearGradient id="currentfill" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id="currentfill" gradientUnits="userSpaceOnUse"
+          x1="0" x2="0" y1={PAD.top} y2={PAD.top + plotH}>
           <stop offset="0%" stopColor="var(--rising)" stopOpacity="0.42" />
           <stop offset={`${zeroFrac * 100}%`} stopColor="var(--rising)" stopOpacity="0.08" />
           <stop offset={`${zeroFrac * 100}%`} stopColor="var(--falling)" stopOpacity="0.08" />
