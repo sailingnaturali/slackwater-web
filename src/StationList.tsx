@@ -113,6 +113,7 @@ export function StationList({
   now,
   onSelect,
   onToggleStar,
+  onRequestLocation,
 }: {
   located: LocatedStation | null;
   starred: Candidate[];
@@ -125,6 +126,7 @@ export function StationList({
   now: Date;
   onSelect: (station: ResolvedStation | ChsStation) => void;
   onToggleStar?: (station: ResolvedStation | ChsStation) => void;
+  onRequestLocation?: () => void;
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
@@ -184,6 +186,7 @@ export function StationList({
           starred={located ? starredIds.has(located.station.id) : false}
           onSelect={() => located && onSelect(located.station)}
           onToggleStar={onToggleStar && located ? () => onToggleStar(located.station) : undefined}
+          onRequestLocation={onRequestLocation}
         />
       </section>
 

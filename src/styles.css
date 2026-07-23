@@ -677,6 +677,33 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .location-body { margin: 0; color: var(--ink-soft); font-size: 0.88rem; }
 .location-action { margin: 0; color: var(--warn); font-size: 0.82rem; }
 
+/* Askable: an invitation, not an alarm — calm border, no amber warn tint. */
+.location-card.askable {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 1rem;
+}
+.location-card.askable .pin-off { color: var(--ink-soft); }
+/* Compact ask button — lighter than the gate's full-width primary. */
+.location-request {
+  margin-top: 0.4rem;
+  align-self: flex-start;
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--sn-leaf);
+  border: 1px solid var(--sn-leaf);
+  color: var(--sn-navy);
+}
+.location-request:hover { background: var(--sn-paper); border-color: var(--sn-paper); }
+
 /* ----------------------------------------------------------------- settings */
 
 dialog.settings {

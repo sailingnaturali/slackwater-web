@@ -365,6 +365,13 @@ export function App() {
           now={now}
           onSelect={choose}
           onToggleStar={toggleStar}
+          // A deep link bypasses the gate, so useLocation stays disabled and the
+          // ask never fires. Resolving the gate here turns it on — its first fix
+          // is the browser prompt this visitor never got.
+          onRequestLocation={() => {
+            localStorage.setItem(SEEN_GATE, "1");
+            setGated(false);
+          }}
         />
         <div className="sidebar-foot">
           <button className="settings-entry" onClick={() => setSettingsOpen(true)}>

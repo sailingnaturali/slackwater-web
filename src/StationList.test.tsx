@@ -226,7 +226,7 @@ describe("StationList grouping", () => {
     expect(container!.querySelectorAll(".station-card").length).toBe(20);
   });
 
-  it("renders the unavailable location card when there is no location", () => {
+  it("renders the location card inviting an ask when there is no location", () => {
     const html = renderToStaticMarkup(
       <StationList
         located={null}
@@ -240,6 +240,6 @@ describe("StationList grouping", () => {
         onSelect={() => {}}
       />,
     );
-    expect(html).toContain("Location unavailable");
+    expect(html).toContain("See stations near you");
   });
 });

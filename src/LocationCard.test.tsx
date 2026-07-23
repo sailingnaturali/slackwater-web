@@ -46,7 +46,10 @@ describe("LocationCard", () => {
     expect(html).not.toContain("good match");
   });
 
-  it("renders the amber unavailable state without pretending to be a settings deep link", () => {
+  // Default (permission unknown until the async Permissions query resolves —
+  // which SSR never runs): the honest state is "we haven't asked yet", so offer
+  // the ask inline rather than sending anyone to settings they may not need.
+  it("offers an inline ask when not located, instead of a settings lecture", () => {
     const html = renderToStaticMarkup(
       <LocationCard
         match={null}
@@ -55,13 +58,18 @@ describe("LocationCard", () => {
         units="imperial"
         selected={false}
         onSelect={() => {}}
+        onRequestLocation={() => {}}
       />,
     );
-    expect(html).toContain("Location unavailable");
-    expect(html).toContain("Turn on location for Slackwater to see stations near you");
-    // The action explains the manual step; it must not read as a button that
-    // claims to open a settings screen the web has no API to reach.
+    expect(html).toContain("See stations near you");
+    expect(html).toContain("Use my location");
+    // A real ask button that triggers a prompt — never a fake "open settings"
+    // link to a screen the web has no API to reach.
     expect(html.toLowerCase()).not.toContain("open settings");
-    expect(html).toContain("unavailable");
+    // Without the ask handler there is nothing to offer, so no button.
+    const noHandler = renderToStaticMarkup(
+      <LocationCard match={null} station={null} state={null} units="imperial" selected={false} onSelect={() => {}} />,
+    );
+    expect(noHandler).not.toContain("Use my location");
   });
 });
