@@ -14,6 +14,8 @@ export function writeSyncPaused(v: boolean): void {
 export interface OfflineSyncView extends SyncSnapshot {
   online: boolean;
   complete: boolean;
+  /** Stations whose download failed — drives the meter's attention (red) state. */
+  failed: number;
   through: Date;
   pauseAll(): void;
   resumeAll(): void;
@@ -51,12 +53,14 @@ export function useOfflineSync(): OfflineSyncView {
 
   const online = isOnline();
   const complete = snapshot.total > 0 && snapshot.ready === snapshot.total;
+  const failed = snapshot.jobs.filter((j) => j.status === "failed").length;
   const through = new Date(Date.now() + (HORIZON_DAYS - 1) * DAY_MS);
 
   return {
     ...snapshot,
     online,
     complete,
+    failed,
     through,
     pauseAll: () => {
       writeSyncPaused(true);
@@ -73,9 +77,11 @@ export function useOfflineSync(): OfflineSyncView {
       void store.restartAll();
     },
     clearCache: () => {
+      // Wipe every cached day, then resetAll (not restartAll) so even ready
+      // stations re-download — restartAll deliberately skips ready.
       void cache.evictBefore("9999-99-99").then(() => {
         writeSyncPaused(false);
-        return store.restartAll();
+        return store.resetAll();
       });
     },
   };

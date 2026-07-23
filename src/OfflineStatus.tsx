@@ -3,6 +3,9 @@ import type { OfflineSyncView } from "./useOfflineSync";
 
 export function OfflineStatus({ view, onOpen }: { view: OfflineSyncView; onOpen: () => void }) {
   const pct = view.total > 0 ? Math.round((view.ready / view.total) * 100) : 0;
+  // Some downloads failed and the sync isn't finished: the meter goes red and
+  // names the failures, so a stalled sync doesn't read as healthy progress.
+  const warn = view.failed > 0 && !view.complete;
 
   let label: string;
   let body: ReactNode;
@@ -16,10 +19,10 @@ export function OfflineStatus({ view, onOpen }: { view: OfflineSyncView; onOpen:
     label = "Waiting for signal";
     body = <span className="offline-meter-label" aria-hidden="true">Waiting for signal</span>;
   } else {
-    label = `Downloading ${pct}%`;
+    label = warn ? `${pct}% — ${view.failed} failed` : `Downloading ${pct}%`;
     body = (
       <>
-        <span className="offline-meter" aria-hidden="true">
+        <span className={warn ? "offline-meter warn" : "offline-meter"} aria-hidden="true">
           <span className="offline-meter-fill" style={{ width: `${pct}%` }} />
         </span>
         <span className="offline-meter-pct" aria-hidden="true">

@@ -18,7 +18,7 @@ const jobs: StationJob[] = [
 ];
 function view(over: Partial<OfflineSyncView> = {}): OfflineSyncView {
   return {
-    jobs, total: 2, ready: 1, paused: false, online: true, complete: false,
+    jobs, total: 2, ready: 1, paused: false, online: true, complete: false, failed: 1,
     through: new Date("2026-07-30T00:00:00Z"),
     pauseAll() {}, resumeAll() {}, pause() {}, restart() {}, restartAll() {}, clearCache() {},
     ...over,

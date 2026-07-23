@@ -17,7 +17,10 @@ export interface SyncSnapshot {
 }
 export type Loader = (station: ChsStation, now: Date) => Promise<unknown>;
 
-export const HORIZON_DAYS = 7;
+// 3 days, not 7: IWLS caps at 30 requests/minute, and a full cold prefetch is
+// many requests per station × ~30 stations. A shorter horizon keeps that cold
+// sync to a few minutes; the sliding window tops up the next day on each launch.
+export const HORIZON_DAYS = 3;
 const STEP_DAYS = 2;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -47,6 +50,7 @@ export interface OfflineSync {
   pause(id: string): void;
   restart(id: string): Promise<void>;
   restartAll(): Promise<void>;
+  resetAll(): Promise<void>;
   resumeIncomplete(): Promise<void>;
 }
 
@@ -61,7 +65,10 @@ export function createOfflineSync(
 ): OfflineSync {
   const load = deps.load ?? defaultLoad;
   const now = deps.now ?? (() => new Date());
-  const concurrency = deps.concurrency ?? 3;
+  // 1, not 3: each loader fires 2–3 series in parallel internally, and the IWLS
+  // rate limiter paces them anyway — serial stations keep progress legible (one
+  // completes before the next starts) and the request queue shallow.
+  const concurrency = deps.concurrency ?? 1;
   const paceMs = deps.paceMs ?? 250;
   const stations = deps.stations ?? (candidates.filter(isChs) as ChsStation[]);
 
@@ -149,9 +156,18 @@ export function createOfflineSync(
       return pump();
     },
     restartAll() {
-      // Re-queue ALL jobs, ready included: cache-first makes re-verifying a
-      // ready station a near-instant cache hit, and clearCache relies on this
-      // to actually re-download after wiping the cache.
+      // Retry the incomplete ones, LEAVE READY ALONE: this is the manager's
+      // kick-start button — a ready station is already offline, re-fetching it
+      // would waste the scarce IWLS request budget. Use resetAll() for a true
+      // from-scratch re-download (clearCache does).
+      for (const job of jobs) if (job.status !== "ready") job.status = "pending";
+      paused = false;
+      emit();
+      return pump();
+    },
+    resetAll() {
+      // Re-queue EVERY job, ready included — for clearCache, which has just
+      // wiped the cache, so even ready stations must re-download.
       for (const job of jobs) job.status = "pending";
       paused = false;
       emit();

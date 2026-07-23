@@ -1,6 +1,6 @@
 // src/chs/client.test.ts
-import { describe, it, expect, vi } from "vitest";
-import { fetchSeries, fetchStationMeta, IWLS_BASE } from "./client";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { createRateLimiter, fetchSeries, fetchStationMeta, IWLS_BASE } from "./client";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -45,6 +45,42 @@ describe("fetchSeries", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("createRateLimiter", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("lets a burst up to capacity through at once, then paces the rest", async () => {
+    vi.useFakeTimers();
+    const acquire = createRateLimiter(3, 1000);
+    const done: number[] = [];
+    for (let i = 0; i < 6; i++) void acquire().then(() => done.push(i));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(done).toEqual([0, 1, 2]); // first `capacity` resolve immediately
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(done).toEqual([0, 1, 2, 3]); // one more per refill interval
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(done).toEqual([0, 1, 2, 3, 4, 5]); // the rest drain, one per interval
+  });
+
+  it("replenishes tokens while idle, so a later burst is fast again", async () => {
+    vi.useFakeTimers();
+    const acquire = createRateLimiter(2, 500);
+    const first: number[] = [];
+    for (let i = 0; i < 2; i++) void acquire().then(() => first.push(i));
+    await Promise.resolve();
+    expect(first).toEqual([0, 1]); // burst of 2 empties the bucket
+
+    await vi.advanceTimersByTimeAsync(2000); // idle long enough to refill
+
+    const second: number[] = [];
+    for (let i = 0; i < 2; i++) void acquire().then(() => second.push(i));
+    await Promise.resolve();
+    expect(second).toEqual([0, 1]); // full bucket again → immediate
   });
 });
 

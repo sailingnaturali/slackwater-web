@@ -5,7 +5,7 @@ import type { OfflineSyncView } from "./useOfflineSync";
 
 function view(over: Partial<OfflineSyncView>): OfflineSyncView {
   return {
-    jobs: [], total: 4, ready: 1, paused: false, online: true, complete: false,
+    jobs: [], total: 4, ready: 1, paused: false, online: true, complete: false, failed: 0,
     through: new Date("2026-07-30T00:00:00Z"),
     pauseAll() {}, resumeAll() {}, pause() {}, restart() {}, restartAll() {}, clearCache() {},
     ...over,
@@ -32,5 +32,20 @@ describe("OfflineStatus", () => {
       <OfflineStatus view={view({ online: false, complete: false })} onOpen={() => {}} />,
     );
     expect(html).toContain("Waiting for signal");
+  });
+
+  it("goes red and names the failures when downloads fail", () => {
+    const html = renderToStaticMarkup(
+      <OfflineStatus view={view({ ready: 3, total: 5, failed: 2 })} onOpen={() => {}} />,
+    );
+    expect(html).toContain("offline-meter warn"); // red state
+    expect(html).toContain("2 failed"); // named in the aria-label
+  });
+
+  it("stays green (no warn) when nothing has failed", () => {
+    const html = renderToStaticMarkup(
+      <OfflineStatus view={view({ ready: 2, total: 5, failed: 0 })} onOpen={() => {}} />,
+    );
+    expect(html).not.toContain("warn");
   });
 });

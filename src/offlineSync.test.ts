@@ -14,12 +14,12 @@ const anchor0 = new Date("2026-07-23T12:00:00Z");
 const stations = [fixture("chs-a", "tide"), fixture("chs-b", "current")];
 
 describe("horizonAnchors", () => {
-  it("steps every 2 days across the horizon (7 days → 4 anchors at 0,2,4,6)", () => {
+  it("steps every 2 days across the horizon (3 days → 2 anchors at 0,2)", () => {
     const a = horizonAnchors(anchor0);
-    expect(a).toHaveLength(4);
+    expect(a).toHaveLength(2);
     const dayMs = 24 * 60 * 60 * 1000;
-    expect(a.map((d) => (d.getTime() - anchor0.getTime()) / dayMs)).toEqual([0, 2, 4, 6]);
-    expect(HORIZON_DAYS).toBe(7);
+    expect(a.map((d) => (d.getTime() - anchor0.getTime()) / dayMs)).toEqual([0, 2]);
+    expect(HORIZON_DAYS).toBe(3);
   });
 });
 
@@ -103,20 +103,35 @@ describe("createOfflineSync", () => {
     expect(sync.snapshot()).not.toBe(before);
   });
 
-  it("restartAll re-queues even a ready station", async () => {
-    const sync = createOfflineSync({ load: okLoad, now: () => anchor0, paceMs: 0, stations });
+  it("restartAll retries failed jobs but skips ready ones (no wasted re-download)", async () => {
+    let fail = true;
+    let calls = 0;
+    const load: Loader = async (station) => {
+      calls++;
+      if (station.id === "chs-a" && fail) throw new Error("x");
+      return {};
+    };
+    const sync = createOfflineSync({ load, now: () => anchor0, paceMs: 0, stations });
     await sync.start();
+    expect(sync.snapshot().jobs.find((j) => j.station.id === "chs-b")!.status).toBe("ready");
+    fail = false;
+    calls = 0;
+    await sync.restartAll();
+    // Only chs-a (failed) re-runs: 1 station × 2 horizon anchors = 2. chs-b (ready) is left alone.
+    expect(calls).toBe(2);
     expect(sync.snapshot().ready).toBe(2);
-    // Simulate a cache clear: everything should re-run, not stay `ready`.
+  });
+
+  it("resetAll re-queues every job, ready included (for clearCache after a wipe)", async () => {
     let reran = 0;
-    const counting = createOfflineSync({
+    const sync = createOfflineSync({
       load: async () => { reran++; return {}; },
       now: () => anchor0, paceMs: 0, stations,
     });
-    await counting.start();
+    await sync.start();
     reran = 0;
-    await counting.restartAll();
-    // 2 stations × 4 horizon anchors each = 8 loader calls on a full re-queue.
-    expect(reran).toBe(8);
+    await sync.resetAll();
+    // 2 stations × 2 horizon anchors = 4 loader calls on a full re-queue.
+    expect(reran).toBe(4);
   });
 });

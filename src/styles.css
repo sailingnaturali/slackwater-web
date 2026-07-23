@@ -901,6 +901,8 @@ footer .warn { color: var(--ink-soft); }
   background: #7bd88f;
   transition: width 0.3s ease;
 }
+/* Downloads failed and the sync is stalled: red, not the healthy green. */
+.offline-meter.warn .offline-meter-fill { background: #e06a5b; }
 .offline-meter-pct,
 .offline-meter-label {
   font-size: 0.75rem;
