@@ -102,7 +102,7 @@ describe("StationCard — currents", () => {
     expect(html).toContain("dir rising"); // ▲ for flood
   });
 
-  it("names the phase and shows no arrow at slack", () => {
+  it("tags the phase in a pill and shows no arrow at slack", () => {
     const slack = renderToStaticMarkup(
       <StationCard
         station={gate}
@@ -111,12 +111,12 @@ describe("StationCard — currents", () => {
         onSelect={() => {}}
       />,
     );
-    expect(slack).toContain("Slack");
+    expect(slack).toContain('phase-pill slack');
     expect(slack).not.toContain("dir rising");
     expect(slack).not.toContain("dir falling");
   });
 
-  it("names the phase without knots for a derived gate", () => {
+  it("tags the phase in a pill, no knots, for a derived gate", () => {
     const derived = renderToStaticMarkup(
       <StationCard
         station={gate}
@@ -125,7 +125,9 @@ describe("StationCard — currents", () => {
         onSelect={() => {}}
       />,
     );
-    expect(derived).toContain("Flooding");
+    expect(derived).toContain('phase-pill flood');
+    // No display-size value: the derived gate has no speed to render.
     expect(derived).not.toContain("2.1");
+    expect(derived).not.toContain("station-card-value");
   });
 });

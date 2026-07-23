@@ -659,6 +659,25 @@ button.ghost:hover { border-color: var(--sn-paper); }
   font-size: 1.3rem;
 }
 
+/* A gate with no speed to show (derived gate, or slack) tags its phase in a
+   compact pill rather than a display-size word — the word widened the reading
+   column and wrapped the station name. Coloured like the tide arrows: flood
+   rises, ebb falls, slack neutral; the border tracks the text via currentColor. */
+.phase-pill {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid currentColor;
+  color: var(--ink-faint);
+}
+.phase-pill.flood { color: var(--rising); }
+.phase-pill.ebb { color: var(--falling); }
+.phase-pill.slack { color: var(--ink-faint); }
+
 /* ----------------------------------------------------------- location card */
 
 .location-card.unavailable {

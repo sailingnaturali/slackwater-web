@@ -1,6 +1,6 @@
 import type { TideState } from "./tides";
 import type { Candidate } from "./place";
-import { currentPhaseWord, type CurrentState } from "./chs/current";
+import { type CurrentState } from "./chs/current";
 import {
   distanceUnit,
   formatDistance,
@@ -105,27 +105,25 @@ export function StationCard({
           </span>
         </div>
       )}
-      {current && (
-        <div className="station-card-reading">
-          <span className="station-card-value">
-            {/* A derived gate has no speed, and slack has no direction — both name
-                the phase, never knots (mirrors the detail readout). */}
-            {current.derived || current.phase === "slack" ? (
-              currentPhaseWord(current.phase)
-            ) : (
-              <>
-                {formatSpeed(current.speed, speedUnit)}
-                <abbr>{speedUnitLabel(speedUnit)}</abbr>
-              </>
-            )}
-          </span>
-          {current.phase !== "slack" && (
+      {current &&
+        // A derived gate has no speed, and slack has no direction — neither has
+        // a number to show. A compact phase pill instead of a display-size word
+        // that widens the reading column and wraps the station name beside it.
+        (current.derived || current.phase === "slack" ? (
+          <div className="station-card-reading">
+            <span className={`phase-pill ${current.phase}`}>{current.phase}</span>
+          </div>
+        ) : (
+          <div className="station-card-reading">
+            <span className="station-card-value">
+              {formatSpeed(current.speed, speedUnit)}
+              <abbr>{speedUnitLabel(speedUnit)}</abbr>
+            </span>
             <span className={current.phase === "flood" ? "dir rising" : "dir falling"}>
               {current.phase === "flood" ? "▲" : "▼"}
             </span>
-          )}
-        </div>
-      )}
+          </div>
+        ))}
     </button>
   );
 
