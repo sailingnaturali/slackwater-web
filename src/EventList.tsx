@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   currentDayEventsFromState,
   dayEvents,
@@ -13,6 +13,12 @@ import type { CurrentState } from "./chs/current";
 import { formatHeight, formatSpeed, heightUnit, speedUnitLabel, type SpeedUnit, type Units } from "./units";
 
 const DAY = 86_400_000;
+
+/** Calendar days between `a` and `b` in `tz` — DST-safe: both sides are date-only midnights. */
+function dayDiff(a: Date, b: Date, tz: string): number {
+  const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: tz });
+  return Math.round((Date.parse(day(a)) - Date.parse(day(b))) / DAY);
+}
 
 const PILLS: Record<DayEventKind, { label: string; className: string }> = {
   high: { label: "↑ High", className: "high" },
@@ -44,26 +50,37 @@ function nearestEvent(events: DayEvent[], t: Date): DayEvent | null {
 export function EventList({
   station,
   now,
+  today,
   units,
   state,
   currentState,
   speedUnit,
+  onPageDay,
+  onToday,
 }: {
   // Full station for the bundled path (paging recomputes from constituents);
   // a CHS port carries no harmonics, so its `state` is passed in and the day's
   // turns are read off that instead.
   station: Station | ChsStation;
+  // The shared scrub instant: the day the chart and hero are on. Paging moves
+  // it (via onPageDay) rather than tracking a private offset, so this list and
+  // the scrubber viz can never drift onto different days.
   now: Date;
+  /** The live clock, for the Today/Tomorrow/Yesterday label — `now` may be scrubbed away from it. */
+  today: Date;
   units: Units;
   /** Present only for a CHS port — the day's turns come from here, not `predictRange`. */
   state?: TideState;
   /** Present only for a CHS current gate — the day's slacks/peaks come from here. */
   currentState?: CurrentState;
   speedUnit?: SpeedUnit;
+  /** Shift the shared instant by whole days (paging the schedule). */
+  onPageDay: (delta: number) => void;
+  /** Snap the shared instant back to the live clock. */
+  onToday: () => void;
 }) {
-  const [dayOffset, setDayOffset] = useState(0);
-
-  const day = useMemo(() => new Date(now.getTime() + dayOffset * DAY), [now, dayOffset]);
+  const day = now;
+  const offset = dayDiff(now, today, station.timezone);
   const events = useMemo(() => {
     if (isChsCurrent(station)) return currentState ? currentDayEventsFromState(currentState, station, day) : [];
     if (isChs(station)) return state ? dayEventsFromState(state, station, day) : [];
@@ -79,7 +96,7 @@ export function EventList({
   });
 
   const relative =
-    dayOffset === 0 ? "Today" : dayOffset === 1 ? "Tomorrow" : dayOffset === -1 ? "Yesterday" : null;
+    offset === 0 ? "Today" : offset === 1 ? "Tomorrow" : offset === -1 ? "Yesterday" : null;
 
   return (
     <section className="panel events">
@@ -89,17 +106,13 @@ export function EventList({
           <p className="events-date">{dayLabel}</p>
         </div>
         <div className="pager">
-          <button onClick={() => setDayOffset((d) => d - 1)} aria-label="Previous day">
+          <button onClick={() => onPageDay(-1)} aria-label="Previous day">
             ‹
           </button>
-          <button
-            onClick={() => setDayOffset(0)}
-            disabled={dayOffset === 0}
-            className="today"
-          >
+          <button onClick={onToday} disabled={offset === 0} className="today">
             Today
           </button>
-          <button onClick={() => setDayOffset((d) => d + 1)} aria-label="Next day">
+          <button onClick={() => onPageDay(1)} aria-label="Next day">
             ›
           </button>
         </div>

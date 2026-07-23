@@ -292,6 +292,15 @@ export function App() {
     history.replaceState(null, "", buildUrl(resolved, next));
   }
 
+  // Paging the schedule moves the one shared instant the chart and hero already
+  // read, so the list can never drift onto a different day than the scrubber.
+  const DAY = 86_400_000;
+  const pageDay = (delta: number) => scrub(new Date(now.getTime() + delta * DAY));
+  function backToToday() {
+    setT(null);
+    history.replaceState(null, "", buildUrl(resolved, null));
+  }
+
   function toggleStar(target: Candidate) {
     setSaved(saved.starred.includes(target.slug) ? unstar(target.slug) : star(target.slug));
   }
@@ -472,9 +481,12 @@ export function App() {
               <EventList
                 station={station}
                 now={now}
+                today={liveNow}
                 units={units}
                 currentState={currentState}
                 speedUnit={speedUnit}
+                onPageDay={pageDay}
+                onToday={backToToday}
               />
             </>
           )
@@ -490,8 +502,11 @@ export function App() {
               <EventList
                 station={station}
                 now={now}
+                today={liveNow}
                 units={units}
                 state={isChs(station) ? state : undefined}
+                onPageDay={pageDay}
+                onToday={backToToday}
               />
             )}
           </>
