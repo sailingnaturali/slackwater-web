@@ -149,7 +149,10 @@ export function createOfflineSync(
       return pump();
     },
     restartAll() {
-      for (const job of jobs) if (job.status !== "ready") job.status = "pending";
+      // Re-queue ALL jobs, ready included: cache-first makes re-verifying a
+      // ready station a near-instant cache hit, and clearCache relies on this
+      // to actually re-download after wiping the cache.
+      for (const job of jobs) job.status = "pending";
       paused = false;
       emit();
       return pump();

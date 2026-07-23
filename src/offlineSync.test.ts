@@ -102,4 +102,21 @@ describe("createOfflineSync", () => {
     await sync.start();
     expect(sync.snapshot()).not.toBe(before);
   });
+
+  it("restartAll re-queues even a ready station", async () => {
+    const sync = createOfflineSync({ load: okLoad, now: () => anchor0, paceMs: 0, stations });
+    await sync.start();
+    expect(sync.snapshot().ready).toBe(2);
+    // Simulate a cache clear: everything should re-run, not stay `ready`.
+    let reran = 0;
+    const counting = createOfflineSync({
+      load: async () => { reran++; return {}; },
+      now: () => anchor0, paceMs: 0, stations,
+    });
+    await counting.start();
+    reran = 0;
+    await counting.restartAll();
+    // 2 stations × 4 horizon anchors each = 8 loader calls on a full re-queue.
+    expect(reran).toBe(8);
+  });
 });
