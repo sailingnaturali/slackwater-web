@@ -21,6 +21,13 @@ interface Entry {
   km: number | null;
 }
 
+/** Whole degrees only — the station card carries identity; this is just "roughly where". */
+function wholeDegrees({ latitude, longitude }: { latitude: number; longitude: number }): string {
+  const lat = `${Math.round(Math.abs(latitude))}°${latitude >= 0 ? "N" : "S"}`;
+  const lon = `${Math.round(Math.abs(longitude))}°${longitude >= 0 ? "E" : "W"}`;
+  return `${lat}, ${lon}`;
+}
+
 function withDistance(
   stations: Candidate[],
   origin: { latitude: number; longitude: number } | null,
@@ -111,7 +118,7 @@ export function StationList({
   return (
     <div className="stations">
       <section className="station-group">
-        <p className="eyebrow">Current location</p>
+        <p className="eyebrow">Current location{origin ? ` · ${wholeDegrees(origin)}` : ""}</p>
         <LocationCard
           match={located?.match ?? null}
           station={located?.station ?? null}

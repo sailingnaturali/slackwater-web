@@ -21,8 +21,10 @@ const portAngeles = resolvedStations.find((s) => s.slug === "port-angeles")!;
 
 const located = { station: fridayHarbor, match: matchStation(fridayHarbor)! };
 
+// Prefix match, not `>${label}<` — the Current location eyebrow carries coords
+// after the label text.
 function labelIndex(html: string, label: string): number {
-  return html.indexOf(`>${label}<`);
+  return html.indexOf(`>${label}`);
 }
 
 let container: HTMLDivElement | null = null;
@@ -57,6 +59,8 @@ describe("StationList grouping", () => {
     );
     for (const i of order) expect(i).toBeGreaterThan(-1);
     for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
+    // The eyebrow carries the rough position; the card below carries identity.
+    expect(html).toMatch(/Current location · \d+°N, \d+°W/);
   });
 
   it("does not render a header over an empty group", () => {

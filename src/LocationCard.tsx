@@ -3,24 +3,12 @@ import type { Match, TideState } from "./tides";
 import type { Candidate } from "./place";
 import type { Units } from "./units";
 
-export const QUALITY_COPY: Record<Match["quality"], string> = {
-  good: "good match",
-  approximate: "approximate — the tide varies across this area",
-  nearest: "nearest station, but a long way off",
-};
-
-function formatCoords(latitude: number, longitude: number): string {
-  const lat = `${Math.abs(latitude).toFixed(3)}°${latitude >= 0 ? "N" : "S"}`;
-  const lon = `${Math.abs(longitude).toFixed(3)}°${longitude >= 0 ? "E" : "W"}`;
-  return `${lat}, ${lon}`;
-}
-
 /**
  * CURRENT LOCATION — always present, in one of two states.
  *
- * Located: the matched station's card, plus the coordinates that produced
- * the match and how much to trust it (the gradient-check quality from
- * `matchStation`).
+ * Located: the matched station's card. The coordinates live in the group
+ * eyebrow (StationList), and the match quality belongs to the detail header
+ * where "not right?" is asked — not repeated here.
  *
  * Unavailable: on iOS this deep-links into Settings. The web has no API to
  * open its own settings — there is no `window.open("browser://settings")` —
@@ -52,22 +40,15 @@ export function LocationCard({
   // the card on identity alone rather than the "unavailable" fallback.
   if (match && station) {
     return (
-      <div className="location-card">
-        <StationCard
-          station={station}
-          state={state ?? undefined}
-          units={units}
-          selected={selected}
-          starred={starred}
-          onSelect={onSelect}
-          onToggleStar={onToggleStar}
-        />
-        <p className="location-meta">
-          <span className="mono">{formatCoords(station.latitude, station.longitude)}</span>
-          {" · "}
-          {QUALITY_COPY[match.quality]}
-        </p>
-      </div>
+      <StationCard
+        station={station}
+        state={state ?? undefined}
+        units={units}
+        selected={selected}
+        starred={starred}
+        onSelect={onSelect}
+        onToggleStar={onToggleStar}
+      />
     );
   }
 

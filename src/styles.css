@@ -646,16 +646,6 @@ button.ghost:hover { border-color: var(--sn-paper); }
 
 /* ----------------------------------------------------------- location card */
 
-.location-card { display: flex; flex-direction: column; gap: 0.5rem; }
-
-.location-meta {
-  margin: 0;
-  padding: 0 0.25rem;
-  font-size: 0.78rem;
-  color: var(--ink-faint);
-}
-.location-meta .mono { font-family: var(--font-mono); }
-
 .location-card.unavailable {
   display: flex;
   flex-direction: column;

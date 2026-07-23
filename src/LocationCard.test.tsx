@@ -30,7 +30,7 @@ const state: TideState = {
 };
 
 describe("LocationCard", () => {
-  it("renders the matched station's coordinates in mono and its match quality", () => {
+  it("renders just the station card — coords live in the group eyebrow, quality in the detail header", () => {
     const html = renderToStaticMarkup(
       <LocationCard
         match={match}
@@ -41,9 +41,9 @@ describe("LocationCard", () => {
         onSelect={() => {}}
       />,
     );
-    expect(html).toContain("48.423°N, 123.371°W");
-    expect(html).toContain("good match");
     expect(html).toContain("Roche Harbor");
+    expect(html).not.toContain("48.423");
+    expect(html).not.toContain("good match");
   });
 
   it("renders the amber unavailable state without pretending to be a settings deep link", () => {
