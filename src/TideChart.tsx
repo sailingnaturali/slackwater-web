@@ -1,13 +1,19 @@
 import { extremesOn, snapToTurn, type TideState } from "./tides";
 import { formatHeight, heightUnit, type Units } from "./units";
 import { useScrub, useResetScrubOnChange, type ScrubGeometry } from "./useScrub";
+import { hourTicks } from "./chartTicks";
 
 /** Spoken aloud by a screen reader, so the unit is spelled out rather than abbreviated. */
 const unitName = (units: Units) => (units === "imperial" ? "feet" : "metres");
 
 const WIDTH = 720;
-const HEIGHT = 240;
-const PAD = { top: 24, right: 16, bottom: 28, left: 44 };
+const HEIGHT = 260;
+// Top band is the readout's row; bottom band holds two rows — turn times just
+// under the curve, hour ticks on the floor.
+const PAD = { top: 32, right: 16, bottom: 48, left: 44 };
+
+/** An event label this close (px) to the readout line yields — the readout carries the time. */
+const LABEL_CLEARANCE = 60;
 
 /** Release within half an hour of a turn and the line snaps onto it. */
 const SNAP_WINDOW_MINUTES = 30;
@@ -138,28 +144,42 @@ export function TideChart({
       <polyline points={area} className="area" fill="url(#fill)" />
       <polyline points={line} className="curve" />
 
-      {extremes.map((extreme) => (
-        <g key={extreme.time.toISOString()}>
-          <circle
-            cx={x(extreme.time.getTime())}
-            cy={y(extreme.level)}
-            r="3.5"
-            className={extreme.high ? "dot high" : "dot low"}
-          />
-          <text
-            x={x(extreme.time.getTime())}
-            y={y(extreme.level) + (extreme.high ? -12 : 18)}
-            className="axis"
-            textAnchor="middle"
-          >
-            {hour(extreme.time)}
+      {hourTicks(t0, t1, station.timezone).map(({ t, label }) => (
+        <g key={t}>
+          <line x1={x(t)} x2={x(t)} y1={PAD.top + plotH} y2={PAD.top + plotH + 5} className="grid" />
+          <text x={x(t)} y={HEIGHT - 10} className="axis" textAnchor="middle">
+            {label}
           </text>
         </g>
       ))}
 
+      {extremes.map((extreme) => {
+        const cx = x(extreme.time.getTime());
+        return (
+          <g key={extreme.time.toISOString()}>
+            <circle
+              cx={cx}
+              cy={y(extreme.level)}
+              r="3.5"
+              className={extreme.high ? "dot high" : "dot low"}
+            />
+            {Math.abs(cx - effectiveX) >= LABEL_CLEARANCE && (
+              <text
+                x={cx}
+                y={y(extreme.level) + (extreme.high ? -16 : 20)}
+                className="axis"
+                textAnchor="middle"
+              >
+                {hour(extreme.time)}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
       <line x1={effectiveX} x2={effectiveX} y1={PAD.top} y2={PAD.top + plotH} className="nowline" />
       <circle cx={effectiveX} cy={y(effectiveLevel)} r="5" className="nowdot" />
-      <text x={effectiveX} y={PAD.top - 8} className="axis readout" textAnchor={anchor}>
+      <text x={effectiveX} y={PAD.top - 12} className="axis readout" textAnchor={anchor}>
         {formatHeight(effectiveLevel, units)} {heightUnit(units)} · {hour(effective)}
       </text>
 

@@ -2,10 +2,16 @@ import { snapToTurn } from "./tides";
 import { useScrub, useResetScrubOnChange, type ScrubGeometry } from "./useScrub";
 import { currentPhaseWord, SLACK_KN, type CurrentState } from "./chs/current";
 import { formatSpeed, speedUnitLabel, type SpeedUnit } from "./units";
+import { hourTicks } from "./chartTicks";
 
 const WIDTH = 720;
-const HEIGHT = 240;
-const PAD = { top: 24, right: 16, bottom: 28, left: 44 };
+const HEIGHT = 260;
+// Top band is the readout's row; bottom band holds two rows — event labels
+// just under the curve, hour ticks on the floor. Mirrors TideChart.
+const PAD = { top: 32, right: 16, bottom: 48, left: 44 };
+
+/** An event label this close (px) to the readout line yields — the readout carries the value. */
+const LABEL_CLEARANCE = 60;
 
 /** Release within half an hour of a slack or peak and the line snaps onto it. */
 const SNAP_WINDOW_MINUTES = 30;
@@ -143,15 +149,27 @@ export function CurrentChart({
       <polygon points={ribbon} fill="url(#currentfill)" className="area" />
       <polyline points={line} className="curve" fill="none" />
 
+      {hourTicks(t0, t1, station.timezone).map(({ t, label }) => (
+        <g key={t}>
+          <line x1={x(t)} x2={x(t)} y1={PAD.top + plotH} y2={PAD.top + plotH + 5} className="grid" />
+          <text x={x(t)} y={HEIGHT - 10} className="axis" textAnchor="middle">
+            {label}
+          </text>
+        </g>
+      ))}
+
       {dayEvents.map((e) => {
         const cx = x(e.time.getTime());
+        const labelled = Math.abs(cx - effectiveX) >= LABEL_CLEARANCE;
         if (e.kind === "slack") {
           return (
             <g key={e.time.toISOString()}>
               <circle cx={cx} cy={yZero} r="3.5" className="dot slack" />
-              <text x={cx} y={yZero + 16} className="axis" textAnchor="middle">
-                {hour(e.time)}
-              </text>
+              {labelled && (
+                <text x={cx} y={yZero + 18} className="axis" textAnchor="middle">
+                  {hour(e.time)}
+                </text>
+              )}
             </g>
           );
         }
@@ -162,16 +180,18 @@ export function CurrentChart({
         return (
           <g key={e.time.toISOString()}>
             <circle cx={cx} cy={y(signed)} r="3.5" className={up ? "dot flood" : "dot ebb"} />
-            <text x={cx} y={y(signed) + (up ? -10 : 18)} className="axis" textAnchor="middle">
-              {formatSpeed(e.speed!, speedUnit)}
-            </text>
+            {labelled && (
+              <text x={cx} y={y(signed) + (up ? -16 : 20)} className="axis" textAnchor="middle">
+                {formatSpeed(e.speed!, speedUnit)}
+              </text>
+            )}
           </g>
         );
       })}
 
       <line x1={effectiveX} x2={effectiveX} y1={PAD.top} y2={PAD.top + plotH} className="nowline" />
       <circle cx={effectiveX} cy={y(effectiveSigned)} r="5" className="nowdot" />
-      <text x={effectiveX} y={PAD.top - 8} className="axis readout" textAnchor={anchor}>
+      <text x={effectiveX} y={PAD.top - 12} className="axis readout" textAnchor={anchor}>
         {/* A derived gate has no speed — the readout names the phase, never knots. */}
         {state.derived
           ? currentPhaseWord(effPhase)
