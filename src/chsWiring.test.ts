@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { matchForPosition, stationsNear, candidates } from "./place";
-import { chsStations } from "./chsStations";
+import { chsStations, chsCurrentStations, companionOf } from "./chsStations";
 
 // The acceptance invariant (spec §7): a position near Victoria must resolve to
 // the CHS Victoria port, not a NOAA station across Haro Strait (Kanaka Bay).
@@ -42,5 +42,27 @@ describe("current gates join the candidate pool", () => {
   it("all gates are in the pool (19 registry + Malibu derived)", () => {
     const gates = candidates.filter((s) => (s as { series?: string }).series === "current");
     expect(gates).toHaveLength(20);
+  });
+});
+
+describe("companionOf pairs a gate with its tide port", () => {
+  const gate = (slug: string) => chsCurrentStations.find((s) => s.slug === slug)!;
+
+  it("a derived gate's companion is its derived reference (Malibu → Point Atkinson)", () => {
+    expect(companionOf(gate("chs-malibu-rapids"))?.id).toBe("chs-point-atkinson");
+  });
+
+  it("an annotated gate's companion is its tideReference (Seymour → Campbell River)", () => {
+    expect(companionOf(gate("chs-seymour-narrows"))?.id).toBe("chs-campbell-river");
+  });
+
+  it("the companion is a tide port from the tide pool, usable by useChsTide", () => {
+    const companion = companionOf(gate("chs-active-pass"))!;
+    expect(companion.series).toBe("tide");
+    expect(chsStations).toContain(companion);
+  });
+
+  it("an unannotated gate has no companion (Blackney Passage)", () => {
+    expect(companionOf(gate("chs-blackney-passage"))).toBeNull();
   });
 });

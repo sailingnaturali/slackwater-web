@@ -50,6 +50,8 @@ type RegistryEntry = {
   aliases?: string[];
   /** Present on a derived gate; `reference` is another registry key (a tide port). */
   derived?: { reference: string; hwLagMinutes: number; lwLagMinutes: number };
+  /** A curated pairing: the tide port this gate is shown beside. Registry-validated (exists, kind: tide). */
+  tideReference?: string;
 };
 
 /** A bundled NOAA station has no `kind`; only CHS ports carry the discriminant. */
@@ -105,3 +107,14 @@ export const chsStations: ChsStation[] = Object.entries(entries)
 export const chsCurrentStations: ChsStation[] = Object.entries(entries)
   .filter(([, e]) => e.provider === "chs" && e.kind !== "tide")
   .map(([key, e]) => toChsStation(key, e, "current"));
+
+/**
+ * The tide port shown beside a gate: a derived gate's reference (the pairing
+ * IS the derivation there), else the registry's curated tideReference. Null
+ * for an unpaired gate — the gate page then shows no tide panel.
+ */
+export function companionOf(gate: ChsStation): ChsStation | null {
+  const e = entries[gate.id];
+  const key = e?.derived?.reference ?? e?.tideReference;
+  return key ? (chsStations.find((s) => s.id === key) ?? null) : null;
+}
