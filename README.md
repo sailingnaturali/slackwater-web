@@ -32,6 +32,30 @@ So Canadian coverage is coming from CHS online instead, marked at lower confiden
 licence filter runs in CI on every build rather than once on a laptop, and there is a test
 asserting nothing else got in.
 
+Crucially, Slackwater never touches the CHS predictions. The static host ships only NOAA
+public-domain data and CHS *station identities* (name, position — no numbers). Each browser
+fetches CHS predictions **directly from DFO's public IWLS API** and caches them in **its own
+IndexedDB**. There is no server in the middle re-serving anyone else's data — every client is
+an independent consumer of IWLS under DFO's own terms, exactly like opening their website.
+
+```mermaid
+flowchart LR
+    host["Slackwater on GitHub Pages<br/>(static: app code +<br/>NOAA data + CHS identities)"]
+    iwls["DFO IWLS API<br/>api-iwls.dfo-mpo.gc.ca"]
+
+    subgraph A["User A's browser"]
+        appA["Slackwater PWA"] --- cacheA[("IndexedDB<br/>own cache")]
+    end
+    subgraph B["User B's browser"]
+        appB["Slackwater PWA"] --- cacheB[("IndexedDB<br/>own cache")]
+    end
+
+    host -. "load app once" .-> appA
+    host -. "load app once" .-> appB
+    appA == "fetch CHS predictions directly" ==> iwls
+    appB == "fetch CHS predictions directly" ==> iwls
+```
+
 ## URLs
 
 `/tide/<slug>` opens a station directly — `/tide/friday-harbor`, `/tide/everett`. Add an
