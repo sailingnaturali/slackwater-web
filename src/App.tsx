@@ -20,11 +20,21 @@ import { Settings } from "./Settings";
 import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
 import { stationsNear, candidates, type Candidate } from "./place";
-import { isChs, type ChsStation } from "./chsStations";
+import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
 import { useChsTide } from "./useChsTide";
+import { useChsCurrent } from "./useChsCurrent";
 import { withNow } from "./chs/tide";
+import { withNowCurrent, compass16, currentPhaseWord } from "./chs/current";
+import { CurrentChart } from "./CurrentChart";
 import { useLocation } from "./useLocation";
-import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
+import {
+  formatHeight,
+  heightUnit,
+  formatDistance,
+  distanceUnit,
+  formatSpeed,
+  speedUnitLabel,
+} from "./units";
 import { parseUrl, buildUrl } from "./url";
 import {
   loadSaved,
@@ -86,7 +96,7 @@ export function App() {
   const [listOpen, setListOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { units, setUnits } = usePreferences();
+  const { units, setUnits, speedUnit, setSpeedUnit } = usePreferences();
 
   // The readout is a clock, not a snapshot - but only while nothing has
   // pinned it (see `t` above).
@@ -181,6 +191,16 @@ export function App() {
   // NOAA is always "ready" (synchronous); CHS carries loading/offline through.
   const status = chsStation ? chs.status : "ready";
 
+  // A third arm alongside the tide one above: a current gate has no level,
+  // only a signed velocity. Same rules-of-hooks discipline — called every
+  // render, idle (`null`) unless the viewed station is a gate.
+  const currentGate = isChsCurrent(station) ? station : null;
+  const chsCur = useChsCurrent(currentGate, now);
+  const currentState = useMemo(
+    () => (chsCur.state ? withNowCurrent(chsCur.state, now) : null),
+    [chsCur.state, now],
+  );
+
   /**
    * The hero's distance and quality must describe the same thing the chooser
    * below it describes. Both ground on the named place: grading against raw
@@ -255,6 +275,9 @@ export function App() {
   const untilNext = state?.next
     ? Math.round((state.next.time.getTime() - now.getTime()) / 60_000)
     : null;
+  const untilSlack = currentState?.nextSlack
+    ? Math.round((currentState.nextSlack.time.getTime() - now.getTime()) / 60_000)
+    : null;
 
   function choose(next: Candidate) {
     setStation(next);
@@ -316,6 +339,8 @@ export function App() {
         open={settingsOpen}
         units={units}
         onUnitsChange={setUnits}
+        speedUnit={speedUnit}
+        onSpeedUnitChange={setSpeedUnit}
         onClose={() => setSettingsOpen(false)}
       />
 
@@ -357,8 +382,52 @@ export function App() {
 
           {/* Provenance-blind once `state` exists. A CHS port with no reading
               yet shows an honest line, never an empty chart or a dead spinner
-              (spec §7c). */}
-          {state ? (
+              (spec §7c). A gate is the same discipline, third arm: never an
+              empty chart, just the honest chs-signal/chs-loading copy. */}
+          {currentGate ? (
+            currentState ? (
+              <>
+                <p className="reading current">
+                  <span className={`dir ${currentState.phase}`}>
+                    {currentState.phase === "slack"
+                      ? "Slack"
+                      : `${currentPhaseWord(currentState.phase)} toward ${compass16(currentState.setDegrees)}`}
+                  </span>
+                  <span className="value">
+                    {formatSpeed(currentState.speed, speedUnit)}
+                    <abbr>{speedUnitLabel(speedUnit)}</abbr>
+                  </span>
+                </p>
+
+                {currentState.nextSlack && untilSlack !== null && (
+                  <p className="next">
+                    Next slack at {time(currentState.nextSlack.time)}
+                    <strong>
+                      {" "}
+                      · in {Math.floor(untilSlack / 60)}h {untilSlack % 60}m
+                    </strong>
+                    {currentState.following && (
+                      <span className="muted">
+                        {" "}
+                        · then {currentState.following.kind === "max-flood" ? "Flood" : "Ebb"}{" "}
+                        {formatSpeed(currentState.following.speed, speedUnit)}{" "}
+                        {speedUnitLabel(speedUnit)}
+                      </span>
+                    )}
+                  </p>
+                )}
+              </>
+            ) : chsCur.status === "offline" ? (
+              <p className="reading chs-signal">
+                <span className="dir">Canadian current data needs a moment of signal.</span>
+                <span className="muted">Reconnect and {resolved.name} will load.</span>
+              </p>
+            ) : (
+              <p className="reading chs-loading">
+                <span className="muted">Loading Canadian current data…</span>
+              </p>
+            )
+          ) : state ? (
             <>
               <p className="reading">
                 <span className={state.rising ? "dir rising" : "dir falling"}>
@@ -396,19 +465,44 @@ export function App() {
           )}
         </section>
 
-        {state && (
-          <section className="panel chart-panel">
-            <TideChart station={resolved} state={state} now={now} units={units} onScrub={scrub} />
-          </section>
-        )}
+        {currentGate ? (
+          currentState && (
+            <>
+              <section className="panel chart-panel">
+                <CurrentChart
+                  station={resolved}
+                  state={currentState}
+                  now={now}
+                  speedUnit={speedUnit}
+                  onScrub={scrub}
+                />
+              </section>
+              <EventList
+                station={station}
+                now={now}
+                units={units}
+                currentState={currentState}
+                speedUnit={speedUnit}
+              />
+            </>
+          )
+        ) : (
+          <>
+            {state && (
+              <section className="panel chart-panel">
+                <TideChart station={resolved} state={state} now={now} units={units} onScrub={scrub} />
+              </section>
+            )}
 
-        {state && (
-          <EventList
-            station={station}
-            now={now}
-            units={units}
-            state={isChs(station) ? state : undefined}
-          />
+            {state && (
+              <EventList
+                station={station}
+                now={now}
+                units={units}
+                state={isChs(station) ? state : undefined}
+              />
+            )}
+          </>
         )}
 
         <footer>
@@ -417,10 +511,11 @@ export function App() {
           </p>
           {isChs(station) ? (
             <p className="muted">
-              Tide data for {resolved.name} is served live from the{" "}
-              <a href="https://tides.gc.ca/">Canadian Hydrographic Service</a> (CHS) under
-              licence — heights and times as published by CHS, not computed on your device.
-              Not to be used for navigation (CHS clause 10).
+              {isChsCurrent(station) ? "Current" : "Tide"} data for {resolved.name} is served
+              live from the <a href="https://tides.gc.ca/">Canadian Hydrographic Service</a>{" "}
+              (CHS) under licence —{" "}
+              {isChsCurrent(station) ? "speeds and times" : "heights and times"} as published by
+              CHS, not computed on your device. Not to be used for navigation (CHS clause 10).
             </p>
           ) : (
             <p className="muted">

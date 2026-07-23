@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchForPosition, stationsNear } from "./place";
+import { matchForPosition, stationsNear, candidates } from "./place";
 import { chsStations } from "./chsStations";
 
 // The acceptance invariant (spec §7): a position near Victoria must resolve to
@@ -30,5 +30,17 @@ describe("CHS ports join the nearest-station pool", () => {
     const slug = matchForPosition(SEATTLE)?.station.slug;
     expect(slug).toBeDefined();
     expect(slug!.startsWith("chs-")).toBe(false);
+  });
+});
+
+describe("current gates join the candidate pool", () => {
+  it("Active Pass is searchable/nearby as a gate", () => {
+    const active = candidates.find((s) => s.slug === "chs-active-pass");
+    expect(active).toBeDefined();
+    expect((active as { series?: string }).series).toBe("current");
+  });
+  it("all 19 gates are in the pool", () => {
+    const gates = candidates.filter((s) => (s as { series?: string }).series === "current");
+    expect(gates).toHaveLength(19);
   });
 });

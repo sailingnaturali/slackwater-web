@@ -1,6 +1,6 @@
 import gazetteerData from "@sailingnaturali/station-corrections/data/gazetteer.json";
 import { resolvedStations, distanceKm, type ResolvedStation } from "./tides";
-import { chsStations, type ChsStation } from "./chsStations";
+import { chsStations, chsCurrentStations, type ChsStation } from "./chsStations";
 import { getPlaceStation } from "./savedStations";
 
 /**
@@ -12,7 +12,7 @@ import { getPlaceStation } from "./savedStations";
 export type Candidate = ResolvedStation | ChsStation;
 
 /** The whole pool the app can name — bundled NOAA plus online CHS ports. */
-export const candidates: Candidate[] = [...resolvedStations, ...chsStations];
+export const candidates: Candidate[] = [...resolvedStations, ...chsStations, ...chsCurrentStations];
 
 export interface Place {
   name: string;
