@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   matchStation,
   matchQuality,
@@ -9,6 +9,7 @@ import {
   stations,
   type Match,
   type Station,
+  type TideState,
 } from "./tides";
 import { TideChart } from "./TideChart";
 import { EventList } from "./EventList";
@@ -24,7 +25,7 @@ import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
 import { useChsTide } from "./useChsTide";
 import { useChsCurrent } from "./useChsCurrent";
 import { withNow } from "./chs/tide";
-import { withNowCurrent, compass16, currentPhaseWord } from "./chs/current";
+import { withNowCurrent, compass16, currentPhaseWord, type CurrentState } from "./chs/current";
 import { CurrentChart } from "./CurrentChart";
 import { useLocation } from "./useLocation";
 import {
@@ -56,6 +57,30 @@ const QUALITY_COPY: Record<Match["quality"], string> = {
   approximate: "approximate — the tide varies across this area",
   nearest: "nearest station, but a long way off",
 };
+
+type Held<T> = { state: T; now: Date; stationId: string };
+
+/**
+ * Keep the last good (state, now) pair on screen while a newly-paged CHS day
+ * loads, so paging holds the previous day instead of blanking the whole view to
+ * "Loading" for the fetch. The hold is dropped when the fetch fails (fall through
+ * to the offline copy) or the station changes (a real reload, not a page). NOAA
+ * is synchronous — `state` is never null — so this just passes it through.
+ */
+export function heldWhileLoading<T>(
+  ref: { current: Held<T> | null },
+  state: T | null,
+  now: Date,
+  stationId: string,
+  loading: boolean,
+): { state: T; now: Date } | null {
+  if (state) {
+    ref.current = { state, now, stationId };
+    return { state, now };
+  }
+  if (loading && ref.current?.stationId === stationId) return ref.current;
+  return null;
+}
 
 export function App() {
   // Parsed once, at mount, from whatever URL the page loaded with — a shared
@@ -193,6 +218,14 @@ export function App() {
     [chsCur.state, now],
   );
 
+  // Paging a CHS day refetches; without a hold the whole view blanks to
+  // "Loading" for the fetch. These keep the previous day on screen until the new
+  // one lands (see heldWhileLoading). NOAA passes straight through.
+  const tideHold = useRef<Held<TideState> | null>(null);
+  const curHold = useRef<Held<CurrentState> | null>(null);
+  const tideView = heldWhileLoading(tideHold, state, now, station.id, status === "loading");
+  const curView = heldWhileLoading(curHold, currentState, now, station.id, chsCur.status === "loading");
+
   /**
    * The hero's distance and quality must describe the same thing the chooser
    * below it describes. Both ground on the named place: grading against raw
@@ -264,11 +297,14 @@ export function App() {
       timeZone: station.timezone,
     });
 
-  const untilNext = state?.next
-    ? Math.round((state.next.time.getTime() - now.getTime()) / 60_000)
+  // The tide/current view holds the previous day while a paged-to day loads, so
+  // its readings are relative to the instant that view is *for* (tideView.now),
+  // which lags the live `now` for the duration of the fetch.
+  const untilNext = tideView?.state.next
+    ? Math.round((tideView.state.next.time.getTime() - tideView.now.getTime()) / 60_000)
     : null;
-  const untilSlack = currentState?.nextSlack
-    ? Math.round((currentState.nextSlack.time.getTime() - now.getTime()) / 60_000)
+  const untilSlack = curView?.state.nextSlack
+    ? Math.round((curView.state.nextSlack.time.getTime() - curView.now.getTime()) / 60_000)
     : null;
 
   function choose(next: Candidate) {
@@ -386,32 +422,32 @@ export function App() {
               (spec §7c). A gate is the same discipline, third arm: never an
               empty chart, just the honest chs-signal/chs-loading copy. */}
           {currentGate ? (
-            currentState ? (
+            curView ? (
               <>
                 <p className="reading current">
-                  <span className={`dir ${currentState.phase}`}>
-                    {currentState.phase === "slack"
+                  <span className={`dir ${curView.state.phase}`}>
+                    {curView.state.phase === "slack"
                       ? "Slack"
-                      : `${currentPhaseWord(currentState.phase)} toward ${compass16(currentState.setDegrees)}`}
+                      : `${currentPhaseWord(curView.state.phase)} toward ${compass16(curView.state.setDegrees)}`}
                   </span>
                   <span className="value">
-                    {formatSpeed(currentState.speed, speedUnit)}
+                    {formatSpeed(curView.state.speed, speedUnit)}
                     <abbr>{speedUnitLabel(speedUnit)}</abbr>
                   </span>
                 </p>
 
-                {currentState.nextSlack && untilSlack !== null && (
+                {curView.state.nextSlack && untilSlack !== null && (
                   <p className="next">
-                    Next slack at {time(currentState.nextSlack.time)}
+                    Next slack at {time(curView.state.nextSlack.time)}
                     <strong>
                       {" "}
                       · in {Math.floor(untilSlack / 60)}h {untilSlack % 60}m
                     </strong>
-                    {currentState.following && (
+                    {curView.state.following && (
                       <span className="muted">
                         {" "}
-                        · then {currentState.following.kind === "max-flood" ? "Flood" : "Ebb"}{" "}
-                        {formatSpeed(currentState.following.speed, speedUnit)}{" "}
+                        · then {curView.state.following.kind === "max-flood" ? "Flood" : "Ebb"}{" "}
+                        {formatSpeed(curView.state.following.speed, speedUnit)}{" "}
                         {speedUnitLabel(speedUnit)}
                       </span>
                     )}
@@ -428,25 +464,25 @@ export function App() {
                 <span className="muted">Loading Canadian current data…</span>
               </p>
             )
-          ) : state ? (
+          ) : tideView ? (
             <>
               <p className="reading">
-                <span className={state.rising ? "dir rising" : "dir falling"}>
-                  {state.rising ? "▲ Rising" : "▼ Falling"}
+                <span className={tideView.state.rising ? "dir rising" : "dir falling"}>
+                  {tideView.state.rising ? "▲ Rising" : "▼ Falling"}
                 </span>
                 <span className="value">
-                  {formatHeight(state.level, units)}
+                  {formatHeight(tideView.state.level, units)}
                   <abbr>{heightUnit(units)}</abbr>
                 </span>
               </p>
 
-              {state.next && untilNext !== null && (
+              {tideView.state.next && untilNext !== null && (
                 <p className="next">
-                  Next {state.next.high ? "high" : "low"} of{" "}
+                  Next {tideView.state.next.high ? "high" : "low"} of{" "}
                   <strong>
-                    {formatHeight(state.next.level, units)} {heightUnit(units)}
+                    {formatHeight(tideView.state.next.level, units)} {heightUnit(units)}
                   </strong>{" "}
-                  at {time(state.next.time)}
+                  at {time(tideView.state.next.time)}
                   <span className="muted">
                     {" "}
                     · in {Math.floor(untilNext / 60)}h {untilNext % 60}m
@@ -467,23 +503,23 @@ export function App() {
         </section>
 
         {currentGate ? (
-          currentState && (
+          curView && (
             <>
               <section className="panel chart-panel">
                 <CurrentChart
                   station={resolved}
-                  state={currentState}
-                  now={now}
+                  state={curView.state}
+                  now={curView.now}
                   speedUnit={speedUnit}
                   onScrub={scrub}
                 />
               </section>
               <EventList
                 station={station}
-                now={now}
+                now={curView.now}
                 today={liveNow}
                 units={units}
-                currentState={currentState}
+                currentState={curView.state}
                 speedUnit={speedUnit}
                 onPageDay={pageDay}
                 onToday={backToToday}
@@ -492,19 +528,19 @@ export function App() {
           )
         ) : (
           <>
-            {state && (
+            {tideView && (
               <section className="panel chart-panel">
-                <TideChart station={resolved} state={state} now={now} units={units} onScrub={scrub} />
+                <TideChart station={resolved} state={tideView.state} now={tideView.now} units={units} onScrub={scrub} />
               </section>
             )}
 
-            {state && (
+            {tideView && (
               <EventList
                 station={station}
-                now={now}
+                now={tideView.now}
                 today={liveNow}
                 units={units}
-                state={isChs(station) ? state : undefined}
+                state={isChs(station) ? tideView.state : undefined}
                 onPageDay={pageDay}
                 onToday={backToToday}
               />
