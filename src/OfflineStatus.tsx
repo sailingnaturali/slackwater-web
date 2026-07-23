@@ -11,17 +11,21 @@ export function OfflineStatus({ view, onOpen }: { view: OfflineSyncView; onOpen:
     body = <span className="offline-icon" aria-hidden="true">✓</span>;
   } else if (view.paused) {
     label = "Paused";
-    body = <span className="offline-meter-label">Paused</span>;
+    body = <span className="offline-meter-label" aria-hidden="true">Paused</span>;
   } else if (!view.online) {
     label = "Waiting for signal";
-    body = <span className="offline-meter-label">Waiting for signal</span>;
+    body = <span className="offline-meter-label" aria-hidden="true">Waiting for signal</span>;
   } else {
     label = `Downloading ${pct}%`;
     body = (
-      <span className="offline-meter" aria-hidden="true">
-        <span className="offline-meter-fill" style={{ width: `${pct}%` }} />
-        <span className="offline-meter-pct">{pct}%</span>
-      </span>
+      <>
+        <span className="offline-meter" aria-hidden="true">
+          <span className="offline-meter-fill" style={{ width: `${pct}%` }} />
+        </span>
+        <span className="offline-meter-pct" aria-hidden="true">
+          {pct}%
+        </span>
+      </>
     );
   }
 
