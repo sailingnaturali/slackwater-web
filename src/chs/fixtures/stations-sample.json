@@ -1,0 +1,5 @@
+[
+  { "id": "5cebf1df3d0f4a073c4bbd1e", "officialName": "Victoria Harbour", "latitude": 48.424, "longitude": -123.371, "timeSeries": [{ "code": "wlp" }, { "code": "wlp-hilo" }] },
+  { "id": "selkirk-id", "officialName": "Selkirk Water", "latitude": 48.44, "longitude": -123.38, "timeSeries": [{ "code": "wlp" }] },
+  { "id": "63aef09f84e5432cd3b6c509", "officialName": "Active Pass", "latitude": 48.8604, "longitude": -123.3128, "timeSeries": [{ "code": "wcsp1" }, { "code": "wcdp1" }] }
+]
