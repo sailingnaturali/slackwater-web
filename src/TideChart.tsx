@@ -1,6 +1,6 @@
-import { useEffect, useState, type PointerEvent } from "react";
 import { extremesOn, snapToTurn, type TideState } from "./tides";
 import { formatHeight, heightUnit, type Units } from "./units";
+import { useScrub, useResetScrubOnChange, type ScrubGeometry } from "./useScrub";
 
 /** Spoken aloud by a screen reader, so the unit is spelled out rather than abbreviated. */
 const unitName = (units: Units) => (units === "imperial" ? "feet" : "metres");
@@ -50,39 +50,43 @@ export function TideChart({
   /** Fired once, on release, with the (already turn-snapped) time to make current. */
   onScrub: (t: Date) => void;
 }) {
-  // The line the pointer is dragging, distinct from `now`: parent state (and
-  // the URL) updates only on release, so per-pixel movement never touches
-  // either - this is the local, every-frame half of that split.
-  const [scrub, setScrub] = useState<Date | null>(null);
-  const [dragging, setDragging] = useState(false);
-
-  // A stale preview from the last station must not bleed into the next one.
-  useEffect(() => setScrub(null), [station.id]);
-
   const localDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: station.timezone });
   const day = localDay(now);
   const points = state.timeline.filter((p) => localDay(p.time) === day);
+
+  // t0/t1/plotW don't depend on there being a full day of points, so the
+  // geometry - and the hooks it feeds - can be built before the early
+  // return below, keeping every render's hook calls unconditional.
+  const t0 = points[0]?.time.getTime() ?? now.getTime();
+  const t1 = points[points.length - 1]?.time.getTime() ?? now.getTime();
+  const plotW = WIDTH - PAD.left - PAD.right;
+
+  // The day's own turns - what the released line snaps onto, and what the
+  // markers below plot. Filtered from the same prediction as the curve
+  // rather than a second call, so the two can never disagree.
+  const extremes = extremesOn(state, now, station.timezone);
+
+  const geometry: ScrubGeometry = { plotLeft: PAD.left, plotWidth: plotW, svgWidth: WIDTH, t0, t1 };
+  const { scrub, reset, handlers } = useScrub(
+    geometry,
+    (raw) => snapToTurn(raw, extremes, SNAP_WINDOW_MINUTES),
+    onScrub,
+  );
+  useResetScrubOnChange(reset, station.id);
+
   if (points.length < 2) return null;
 
-  const t0 = points[0].time.getTime();
-  const t1 = points[points.length - 1].time.getTime();
   const levels = points.map((p) => p.level);
   const min = Math.min(...levels);
   const max = Math.max(...levels);
   const range = max - min || 1;
 
-  const plotW = WIDTH - PAD.left - PAD.right;
   const plotH = HEIGHT - PAD.top - PAD.bottom;
   const x = (time: number) => PAD.left + ((time - t0) / (t1 - t0)) * plotW;
   const y = (level: number) => PAD.top + (1 - (level - min) / range) * plotH;
 
   const line = points.map((p) => `${x(p.time.getTime())},${y(p.level)}`).join(" ");
   const area = `${PAD.left},${PAD.top + plotH} ${line} ${PAD.left + plotW},${PAD.top + plotH}`;
-
-  // The day's own turns - what the released line snaps onto, and what the
-  // markers below plot. Filtered from the same prediction as the curve
-  // rather than a second call, so the two can never disagree.
-  const extremes = extremesOn(state, now, station.timezone);
 
   const effective = scrub ?? now;
   const effectiveX = x(Math.min(Math.max(effective.getTime(), t0), t1));
@@ -97,43 +101,6 @@ export function TideChart({
       hour12: false,
       timeZone: station.timezone,
     });
-
-  function timeFromClientX(target: Element, clientX: number): Date {
-    const rect = target.getBoundingClientRect();
-    const svgX = ((clientX - rect.left) / rect.width) * WIDTH;
-    const clamped = Math.min(Math.max(svgX, PAD.left), WIDTH - PAD.right);
-    const frac = (clamped - PAD.left) / plotW;
-    return new Date(t0 + frac * (t1 - t0));
-  }
-
-  function handleDown(e: PointerEvent<SVGRectElement>) {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setDragging(true);
-    setScrub(timeFromClientX(e.currentTarget, e.clientX));
-  }
-
-  function handleMove(e: PointerEvent<SVGRectElement>) {
-    // Touch has no hover, so an untouched pointermove there is a no-op
-    // anyway; the check just keeps that explicit for a mouse, which does.
-    if (!dragging && e.pointerType !== "mouse") return;
-    setScrub(timeFromClientX(e.currentTarget, e.clientX));
-  }
-
-  function handleUp(e: PointerEvent<SVGRectElement>) {
-    if (!dragging) return;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    setDragging(false);
-    const raw = timeFromClientX(e.currentTarget, e.clientX);
-    const snapped = snapToTurn(raw, extremes, SNAP_WINDOW_MINUTES);
-    setScrub(snapped);
-    onScrub(snapped);
-  }
-
-  function handleLeave() {
-    // A hover that never pressed is just a preview; only a completed drag
-    // (handleUp, above) commits anything.
-    if (!dragging) setScrub(null);
-  }
 
   return (
     <svg
@@ -205,10 +172,7 @@ export function TideChart({
         height={plotH}
         fill="transparent"
         className="scrub-target"
-        onPointerDown={handleDown}
-        onPointerMove={handleMove}
-        onPointerUp={handleUp}
-        onPointerLeave={handleLeave}
+        {...handlers}
       />
     </svg>
   );
