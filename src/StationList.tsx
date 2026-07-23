@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { distanceKm, predict, type Match, type ResolvedStation } from "./tides";
-import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
+import { isChs, isChsCurrent, companionOf, type ChsStation } from "./chsStations";
 import { withNowCurrent } from "./chs/current";
+import { withNow } from "./chs/tide";
 import { useChsCurrent } from "./useChsCurrent";
+import { useChsTide } from "./useChsTide";
 import type { Candidate } from "./place";
 import type { SpeedUnit, Units } from "./units";
 import type { NearbyStation } from "./nearby";
@@ -15,6 +17,11 @@ import { RECENT_LIMIT, STARRED_LIMIT, NEARBY_ALL_LIMIT } from "./savedStations";
  * via `useChsCurrent` (a hook — can't run inside the group's `.map`). A bundled
  * tide station predicts synchronously; a CHS tide port still renders on identity
  * until its own list-loading lands (see StationCard's `state` doc).
+ *
+ * A gate paired with a tide port (e.g. Malibu Rapids) shows BOTH readings on
+ * one card — the same merge the detail view does — so the list can't drift from
+ * the page it links to. The companion tide rides a second hook here, since a
+ * gate's `useChsCurrent` reading carries only current/slack, never tide height.
  */
 function GroupCard({
   station,
@@ -39,16 +46,24 @@ function GroupCard({
 }) {
   // Cache-first (IndexedDB): free for a gate whose day is already cached, one
   // fetch on first sight. `null` for any non-current station → the hook no-ops.
-  const chsCur = useChsCurrent(isChsCurrent(station) ? station : null, now);
+  const gate = isChsCurrent(station) ? station : null;
+  const chsCur = useChsCurrent(gate, now);
   const current = chsCur.state ? withNowCurrent(chsCur.state, now) : undefined;
+
+  // The gate's companion tide (Malibu Rapids → Point Atkinson). Cache-first and
+  // a no-op for a gate with no pairing (companionOf → null → the hook idles).
+  const companion = gate ? companionOf(gate) : null;
+  const chsTide = useChsTide(companion, now);
+  const companionTide = chsTide.state ? withNow(chsTide.state, now) : undefined;
 
   return (
     <StationCard
       station={station}
       km={km ?? undefined}
       // A bundled tide station predicts offline; a CHS tide port renders on
-      // identity (undefined); a current gate carries its loaded reading.
-      state={isChs(station) ? undefined : predict(station, now)}
+      // identity (undefined); a current gate carries its companion tide beside
+      // the current (or undefined when it has no paired tide port).
+      state={gate ? companionTide : isChs(station) ? undefined : predict(station, now)}
       current={current}
       units={units}
       speedUnit={speedUnit}
