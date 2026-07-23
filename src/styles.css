@@ -812,6 +812,17 @@ footer .warn { color: var(--ink-soft); }
   }
   .hero { grid-area: hero; }
   .chart-panel { grid-area: chart; }
+  /* A gate with a companion tide port renders two chart panels; the named
+     "chart" area holds one, so the second gets its own row. :has() keeps the
+     single-chart grid (and its row rhythm) untouched on every other page. */
+  .content:has(.chart-panel ~ .chart-panel) {
+    grid-template-areas:
+      "hero   events"
+      "chart  events"
+      "tide   events"
+      "footer events";
+  }
+  .chart-panel ~ .chart-panel { grid-area: tide; }
   .events { grid-area: events; align-self: start; }
   footer { grid-area: footer; }
 }
