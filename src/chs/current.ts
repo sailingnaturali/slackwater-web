@@ -1,5 +1,5 @@
 import type { IwlsSample, IwlsStationMeta } from "./client";
-import { fetchSeries, fetchStationMeta } from "./client";
+import { fetchStationMeta } from "./client";
 import { type ChsCache } from "./cache";
 import { HOUR_MS, localDaysInWindow, resolveCachedId, seriesForWindow } from "./window";
 import type { ChsStation } from "../chsStations";

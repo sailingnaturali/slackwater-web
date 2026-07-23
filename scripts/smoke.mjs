@@ -326,6 +326,10 @@ async function main() {
     const gateName = await gatePage.$eval(".place h1", (el) => el.textContent);
     if (gateName !== "Active Pass") throw new Error(`CHS gate offline: expected Active Pass, got ${JSON.stringify(gateName)}`);
     await gatePage.waitForSelector(".reading.chs-signal", { timeout: 10_000 });
+    const gateSignalText = await gatePage.$eval(".reading.chs-signal", (el) => el.textContent);
+    if (!/needs a moment of signal/i.test(gateSignalText ?? "")) {
+      throw new Error(`CHS gate offline: expected the "needs signal" message, got: ${JSON.stringify(gateSignalText)}`);
+    }
     if ((await gatePage.$$(".chart")).length !== 0) throw new Error("CHS gate offline: a chart rendered with no data — expected none");
     if (gateErrors.length) throw new Error(`CHS gate offline page reported errors:\n${gateErrors.join("\n")}`);
     await gatePage.close();

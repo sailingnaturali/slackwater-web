@@ -29,6 +29,16 @@ describe("loadChsCurrent", () => {
     expect(out.state?.events.length).toBeGreaterThan(0);
   });
 
+  it("returns offline when the station carries the series but the window is empty", async () => {
+    // A valid 200 with an empty series adapts to a degenerate state; surface
+    // it as honestly degraded, not a real reading (mirrors useChsTide.test.ts).
+    const fetchFn = vi.fn(async () => new Response(JSON.stringify([]), { status: 200 })) as unknown as typeof fetch;
+    const out = await loadChsCurrent(station, new Date("2026-07-23T05:00:00Z"),
+      memoryCache(), fetchFn, stationList);
+    expect(out.status).toBe("offline");
+    expect(out.state).toBeNull();
+  });
+
   it("returns offline when the fetch fails and nothing is cached", async () => {
     // fake timers collapse client.ts's 1s+2s+4s retry backoff (see chs/client.test.ts)
     vi.useFakeTimers();

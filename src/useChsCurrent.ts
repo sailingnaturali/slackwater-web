@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ChsStation } from "./chsStations";
-import type { CurrentState } from "./chs/current";
-import { chsCurrentDay } from "./chs/current";
+import { chsCurrentDay, type CurrentState } from "./chs/current";
 import { type ChsCache, indexedDbCache } from "./chs/cache";
 import type { IwlsStationMeta } from "./chs/client";
 
