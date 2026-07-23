@@ -39,8 +39,8 @@ describe("current gates join the candidate pool", () => {
     expect(active).toBeDefined();
     expect((active as { series?: string }).series).toBe("current");
   });
-  it("all 19 gates are in the pool", () => {
+  it("all gates are in the pool (19 registry + Malibu derived)", () => {
     const gates = candidates.filter((s) => (s as { series?: string }).series === "current");
-    expect(gates).toHaveLength(19);
+    expect(gates).toHaveLength(20);
   });
 });

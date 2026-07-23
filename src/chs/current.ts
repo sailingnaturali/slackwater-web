@@ -7,7 +7,14 @@ import type { ChsStation } from "../chsStations";
 /** Below this magnitude the water reads "Slack", not a direction (spec §5a). */
 export const SLACK_KN = 0.15;
 
-export interface CurrentEvent { time: Date; kind: "slack" | "max-flood" | "max-ebb"; speed: number }
+export interface CurrentEvent {
+  time: Date;
+  kind: "slack" | "max-flood" | "max-ebb";
+  /** Absent for a derived gate: CHS publishes no current there, so no speed is known. */
+  speed?: number;
+  /** Derived gates only: this slack sits at high water (true) or low water (false). */
+  highWater?: boolean;
+}
 export interface CurrentState {
   signed: number;
   speed: number;
@@ -19,6 +26,12 @@ export interface CurrentState {
   following: CurrentEvent | null;
   events: CurrentEvent[];
   timeline: { time: Date; signed: number }[];
+  /**
+   * True when slack times were derived from a reference port's tide (a gate CHS
+   * publishes no current for). Such a state carries honest slack times and a
+   * flood/ebb phase from the tide trend, but no speed magnitude and no timeline.
+   */
+  derived?: boolean;
 }
 
 const P16 = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
@@ -101,13 +114,78 @@ export function toCurrentState(
 }
 
 export function withNowCurrent(state: CurrentState, now: Date): CurrentState {
+  if (state.derived) return { ...state, ...derivedNowFields(state.events, now) };
   return { ...state, ...nowFields(state.timeline, state.events, state.floodDirection, state.ebbDirection, now) };
+}
+
+// --- Derived gates: slack from a reference port's tide ---------------------
+//
+// Some passes (Malibu Rapids) have no CHS current station at all. The standard
+// mariner's rule is that slack occurs a fixed lag after the reference port's
+// high/low water, and the pass floods on the rising tide, ebbs on the falling
+// one. So we can state slack *times* and the flood/ebb *phase* honestly — but
+// never a speed, which CHS does not predict.
+
+/** Within this of a derived slack, the gate reads "Slack" rather than flood/ebb. */
+export const DERIVED_SLACK_WINDOW_MIN = 12;
+
+/** wlp-hilo extremes strictly alternate; each is a high iff it exceeds its neighbour. */
+function classifyHilo(hilo: IwlsSample[]): { time: Date; high: boolean }[] {
+  const pts = hilo.map((s) => ({ time: new Date(s.eventDate), level: s.value }));
+  return pts.map((p, i) => ({
+    time: p.time,
+    high: p.level > (i > 0 ? pts[i - 1].level : pts[i + 1]?.level ?? p.level),
+  }));
+}
+
+function derivedNowFields(
+  events: CurrentEvent[], now: Date,
+): Pick<CurrentState, "signed" | "speed" | "phase" | "setDegrees" | "nextSlack" | "following"> {
+  const nowMs = now.getTime();
+  const nextSlack = events.find((e) => e.time.getTime() > nowMs) ?? null;
+  // Distance to the nearest slack either side of now decides whether we call it "Slack".
+  const best = events.reduce((m, e) => Math.min(m, Math.abs(e.time.getTime() - nowMs)), Infinity);
+  // Heading toward a high-water slack ⇒ tide rising ⇒ flooding; toward low water ⇒ ebbing.
+  // Past the last slack, invert its origin (an HW slack turns the flood to ebb).
+  const rising = nextSlack ? nextSlack.highWater! : !events[events.length - 1]?.highWater;
+  const phase: CurrentState["phase"] =
+    best <= DERIVED_SLACK_WINDOW_MIN * 60_000 ? "slack" : rising ? "flood" : "ebb";
+  return { signed: 0, speed: 0, phase, setDegrees: 0, nextSlack, following: null };
+}
+
+/** Reference-port high/low water → a derived gate's slack times + flood/ebb phase. */
+export function deriveCurrentState(
+  hilo: IwlsSample[], hwLagMin: number, lwLagMin: number, now: Date,
+): CurrentState {
+  const events: CurrentEvent[] = classifyHilo(hilo).map((e) => ({
+    time: new Date(e.time.getTime() + (e.high ? hwLagMin : lwLagMin) * 60_000),
+    kind: "slack",
+    highWater: e.high,
+  }));
+  return {
+    ...derivedNowFields(events, now),
+    floodDirection: 0, ebbDirection: 0, events, timeline: [], derived: true,
+  };
 }
 
 export async function chsCurrentDay(
   station: ChsStation, now: Date,
   deps: { cache: ChsCache; fetchFn?: typeof fetch; stationList?: IwlsStationMeta[] },
 ): Promise<CurrentState> {
+  if (station.derived) {
+    const { reference, hwLagMin, lwLagMin } = station.derived;
+    // Resolve the reference tide port by its position, cached under this gate's id.
+    const id = await resolveCachedId(
+      { id: station.id, latitude: reference.latitude, longitude: reference.longitude, name: reference.name },
+      "wlp-hilo", deps,
+    );
+    const start = new Date(now.getTime() - 18 * HOUR_MS);
+    const end = new Date(now.getTime() + 30 * HOUR_MS);
+    const days = localDaysInWindow(start, end, station.timezone);
+    const hilo = await seriesForWindow(id, "wlp-hilo", days, station.timezone, start, end, deps.cache, deps.fetchFn);
+    return deriveCurrentState(hilo, hwLagMin, lwLagMin, now);
+  }
+
   const id = await resolveCachedId(station, "wcsp1", deps);
 
   // Flood/ebb axis: per-station, stable, cached with no day component.

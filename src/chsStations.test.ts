@@ -29,9 +29,11 @@ describe("chsCurrentStations", () => {
     expect(active as unknown as { constituents?: unknown }).not.toHaveProperty("constituents");
   });
 
-  it("has all 19 gates and none of the tide ports", () => {
-    expect(chsCurrentStations).toHaveLength(19);
+  it("has the 19 registry gates plus the derived Malibu gate, and no tide ports", () => {
+    expect(chsCurrentStations).toHaveLength(20);
     expect(chsCurrentStations.some((s) => s.slug === "chs-victoria")).toBe(false);
+    const malibu = chsCurrentStations.find((s) => s.slug === "chs-malibu-rapids");
+    expect(malibu?.derived?.reference.name).toBe("Point Atkinson");
   });
 
   it("tags the tide ports as series 'tide'", () => {

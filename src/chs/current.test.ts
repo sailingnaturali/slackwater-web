@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
-  compass16, toCurrentState, withNowCurrent, chsCurrentDay, SLACK_KN,
+  compass16, toCurrentState, withNowCurrent, chsCurrentDay, deriveCurrentState, SLACK_KN,
 } from "./current";
 import { memoryCache } from "./cache";
 import events from "./fixtures/active-pass-events.json";
@@ -61,6 +61,47 @@ describe("withNowCurrent", () => {
     const later = withNowCurrent(base, new Date("2026-07-23T10:20:00Z")); // just past a max-ebb
     expect(later.timeline).toBe(base.timeline);            // fixed fields shared, not recomputed
     expect(later.nextSlack).not.toEqual(base.nextSlack);   // countdown target advanced
+  });
+});
+
+describe("deriveCurrentState (tide-derived gate, e.g. Malibu Rapids)", () => {
+  // Point Atkinson HW/LW over one day: LW 03:00, HW 09:00, LW 15:00, HW 21:00.
+  const hilo: IwlsSample[] = [
+    { eventDate: "2026-07-23T03:00:00Z", value: 0.5 },
+    { eventDate: "2026-07-23T09:00:00Z", value: 4.0 },
+    { eventDate: "2026-07-23T15:00:00Z", value: 1.0 },
+    { eventDate: "2026-07-23T21:00:00Z", value: 4.2 },
+  ];
+  const HW = 25, LW = 35;
+
+  it("places a slack HW+25 / LW+35 after each extreme, tagged by origin, with no speed", () => {
+    const s = deriveCurrentState(hilo, HW, LW, new Date("2026-07-23T06:00:00Z"));
+    expect(s.derived).toBe(true);
+    expect(s.timeline).toEqual([]);
+    expect(s.events.map((e) => e.kind)).toEqual(["slack", "slack", "slack", "slack"]);
+    expect(s.events.every((e) => e.speed === undefined)).toBe(true);
+    // LW 03:00 → 03:35 (low origin); HW 09:00 → 09:25 (high origin).
+    expect(s.events[0]).toMatchObject({ highWater: false });
+    expect(s.events[0].time.toISOString()).toBe("2026-07-23T03:35:00.000Z");
+    expect(s.events[1]).toMatchObject({ highWater: true });
+    expect(s.events[1].time.toISOString()).toBe("2026-07-23T09:25:00.000Z");
+  });
+
+  it("floods on the rising tide, ebbs on the falling one, slack near a turn", () => {
+    // 06:00 sits between the 03:35 low-water slack and the 09:25 high-water slack ⇒ rising ⇒ flood.
+    expect(deriveCurrentState(hilo, HW, LW, new Date("2026-07-23T06:00:00Z")).phase).toBe("flood");
+    // 12:00 sits between the 09:25 high-water slack and the 15:35 low-water slack ⇒ falling ⇒ ebb.
+    expect(deriveCurrentState(hilo, HW, LW, new Date("2026-07-23T12:00:00Z")).phase).toBe("ebb");
+    // Within 12 min of the 09:25 slack ⇒ slack.
+    expect(deriveCurrentState(hilo, HW, LW, new Date("2026-07-23T09:20:00Z")).phase).toBe("slack");
+    // No fabricated magnitude.
+    expect(deriveCurrentState(hilo, HW, LW, new Date("2026-07-23T06:00:00Z")).speed).toBe(0);
+  });
+
+  it("points nextSlack at the first slack after now", () => {
+    const s = deriveCurrentState(hilo, HW, LW, new Date("2026-07-23T06:00:00Z"));
+    expect(s.nextSlack?.time.toISOString()).toBe("2026-07-23T09:25:00.000Z");
+    expect(s.following).toBeNull();
   });
 });
 

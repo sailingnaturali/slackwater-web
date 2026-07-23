@@ -151,13 +151,15 @@ export function CurrentChart({
             </g>
           );
         }
-        const signed = e.kind === "max-flood" ? e.speed : -e.speed;
+        // Peak events (the only kind reaching here) always carry a speed; a
+        // derived gate has none and never renders this chart.
+        const signed = e.kind === "max-flood" ? e.speed! : -e.speed!;
         const up = e.kind === "max-flood";
         return (
           <g key={e.time.toISOString()}>
             <circle cx={cx} cy={y(signed)} r="3.5" className={up ? "dot flood" : "dot ebb"} />
             <text x={cx} y={y(signed) + (up ? -10 : 18)} className="axis" textAnchor="middle">
-              {formatSpeed(e.speed, speedUnit)}
+              {formatSpeed(e.speed!, speedUnit)}
             </text>
           </g>
         );

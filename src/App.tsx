@@ -428,12 +428,17 @@ export function App() {
                   <span className={`dir ${curView.state.phase}`}>
                     {curView.state.phase === "slack"
                       ? "Slack"
-                      : `${currentPhaseWord(curView.state.phase)} toward ${compass16(curView.state.setDegrees)}`}
+                      : curView.state.derived
+                        ? currentPhaseWord(curView.state.phase)
+                        : `${currentPhaseWord(curView.state.phase)} toward ${compass16(curView.state.setDegrees)}`}
                   </span>
-                  <span className="value">
-                    {formatSpeed(curView.state.speed, speedUnit)}
-                    <abbr>{speedUnitLabel(speedUnit)}</abbr>
-                  </span>
+                  {/* A derived gate has no CHS-predicted speed — never show a number. */}
+                  {!curView.state.derived && (
+                    <span className="value">
+                      {formatSpeed(curView.state.speed, speedUnit)}
+                      <abbr>{speedUnitLabel(speedUnit)}</abbr>
+                    </span>
+                  )}
                 </p>
 
                 {curView.state.nextSlack && untilSlack !== null && (
@@ -447,7 +452,8 @@ export function App() {
                       <span className="muted">
                         {" "}
                         · then {curView.state.following.kind === "max-flood" ? "Flood" : "Ebb"}{" "}
-                        {formatSpeed(curView.state.following.speed, speedUnit)}{" "}
+                        {/* peaks always carry a speed; derived gates have no `following` */}
+                        {formatSpeed(curView.state.following.speed!, speedUnit)}{" "}
                         {speedUnitLabel(speedUnit)}
                       </span>
                     )}
@@ -505,15 +511,26 @@ export function App() {
         {currentGate ? (
           curView && (
             <>
-              <section className="panel chart-panel">
-                <CurrentChart
-                  station={resolved}
-                  state={curView.state}
-                  now={curView.now}
-                  speedUnit={speedUnit}
-                  onScrub={scrub}
-                />
-              </section>
+              {curView.state.derived ? (
+                <section className="panel derived-note">
+                  <p className="muted">
+                    No CHS current station here — slack times are derived from{" "}
+                    high and low water at Point Atkinson (+25 min at high, +35 at low).
+                    The pass floods on the rising tide, ebbs on the falling one;{" "}
+                    <strong>speeds are not predicted</strong> (it runs to about 9 knots).
+                  </p>
+                </section>
+              ) : (
+                <section className="panel chart-panel">
+                  <CurrentChart
+                    station={resolved}
+                    state={curView.state}
+                    now={curView.now}
+                    speedUnit={speedUnit}
+                    onScrub={scrub}
+                  />
+                </section>
+              )}
               <EventList
                 station={station}
                 now={curView.now}
@@ -552,7 +569,14 @@ export function App() {
           <p className="warn">
             Astronomical prediction only — <strong>not for navigation</strong>.
           </p>
-          {isChs(station) ? (
+          {currentGate?.derived ? (
+            <p className="muted">
+              Slack times for {resolved.name} are derived on your device from Point Atkinson
+              high and low water, served live from the{" "}
+              <a href="https://tides.gc.ca/">Canadian Hydrographic Service</a> (CHS) under licence.
+              CHS publishes no current prediction here. Not to be used for navigation (CHS clause 10).
+            </p>
+          ) : isChs(station) ? (
             <p className="muted">
               {isChsCurrent(station) ? "Current" : "Tide"} data for {resolved.name} is served
               live from the <a href="https://tides.gc.ca/">Canadian Hydrographic Service</a>{" "}

@@ -13,8 +13,10 @@ export async function loadChsCurrent(
   try {
     const state = await chsCurrentDay(station, now, { cache, fetchFn, stationList });
     // A valid 200 with no samples adapts to a degenerate state — a lie, not a
-    // reading. Treat it as honestly degraded, same as offline.
-    if (state.timeline.length === 0 || state.events.length === 0) {
+    // reading. Treat it as honestly degraded, same as offline. A derived gate
+    // has no timeline by design (slack times only), so only its events matter.
+    const noData = state.derived ? state.events.length === 0 : state.timeline.length === 0 || state.events.length === 0;
+    if (noData) {
       return { state: null, status: "offline" };
     }
     return { state, status: "ready" };
