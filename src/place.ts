@@ -1,5 +1,5 @@
 import gazetteerData from "@sailingnaturali/station-corrections/data/gazetteer.json";
-import { resolvedStations, distanceKm, type ResolvedStation } from "./tides";
+import { resolvedStations, distanceKm, matchStation, type ResolvedStation, type Match } from "./tides";
 import { chsStations, chsCurrentStations, type ChsStation } from "./chsStations";
 import { getPlaceStation } from "./savedStations";
 
@@ -91,4 +91,26 @@ export function matchForPosition(
   }
 
   return { place, station: alternatives[0], alternatives, overridden: false };
+}
+
+/**
+ * The single "given this fix, which station and how good a match" — station
+ * (and place override) from `matchForPosition`, quality from `matchStation`.
+ * Both the initial gate and the live watch call this so they never disagree
+ * for the same coordinate; they used to, and the disagreement made
+ * `rememberLocation` demote one pick into Recent — a phantom entry on a
+ * first-ever visit.
+ */
+export function locateStation(position: {
+  latitude: number;
+  longitude: number;
+}): { station: Candidate; distanceKm: number; quality: Match["quality"] } | null {
+  const match = matchForPosition(position);
+  if (!match) return null;
+  const graded = matchStation(position);
+  return {
+    station: match.station,
+    distanceKm: distanceKm(position, match.station),
+    quality: graded?.quality ?? "nearest",
+  };
 }

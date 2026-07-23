@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { nearestPlace, stationsNear, matchForPosition } from "./place";
+import { nearestPlace, stationsNear, matchForPosition, locateStation } from "./place";
 import { setPlaceStation } from "./savedStations";
 
 const victoria = { latitude: 48.4284, longitude: -123.3656 };
@@ -53,6 +53,16 @@ describe("matchForPosition", () => {
     setPlaceStation("Victoria", chosen);
     matchForPosition(seattle);
     expect(matchForPosition(victoria)!.station.slug).toBe(chosen);
+  });
+});
+
+describe("locateStation", () => {
+  it("resolves the same station matchForPosition does", () => {
+    // The gate and the live watch both go through here, so they never
+    // disagree for one fix and demote a pick into Recent. If this ever
+    // routed through matchStation again (bundled-only), the slugs diverge.
+    expect(locateStation(victoria)!.station.slug).toBe(matchForPosition(victoria)!.station.slug);
+    expect(locateStation(victoria)!.quality).toBeTruthy();
   });
 });
 

@@ -19,7 +19,7 @@ import { Search } from "./SearchScreen";
 import { Settings } from "./Settings";
 import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
-import { stationsNear, candidates, type Candidate } from "./place";
+import { stationsNear, candidates, locateStation, type Candidate } from "./place";
 import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
 import { useChsTide } from "./useChsTide";
 import { useChsCurrent } from "./useChsCurrent";
@@ -131,17 +131,12 @@ export function App() {
     }
     if (!live.position || !live.place) return;
     setOrigin(live.position);
-    if (located?.station.slug === live.place.station.slug) return;
-    const graded = matchStation(live.position);
-    const found: Match = {
-      station: live.place.station,
-      distanceKm: distanceKm(live.position, live.place.station),
-      quality: graded?.quality ?? "nearest",
-    };
-    setStation(live.place.station);
+    const found = locateStation(live.position);
+    if (!found || located?.station.slug === found.station.slug) return;
+    setStation(found.station);
     setMatch(found);
-    setLocated({ station: live.place.station, match: found });
-    setSaved(rememberLocation(live.place.station.slug));
+    setLocated({ station: found.station, match: found });
+    setSaved(rememberLocation(found.station.slug));
     // `located` isn't a dep: it's this effect's own output, and listing it
     // would just re-run the effect (harmlessly, since the slug check above
     // no-ops) every time it fires.
@@ -151,15 +146,12 @@ export function App() {
     localStorage.setItem(SEEN_GATE, "1");
     if (result.kind === "located") {
       setOrigin(result);
-      const found = matchStation(result);
+      const found = locateStation(result);
       if (found) {
         setStation(found.station);
         setMatch(found);
-        const resolved = resolvedStations.find((s) => s.id === found.station.id);
-        if (resolved) {
-          setLocated({ station: resolved, match: found });
-          setSaved(rememberLocation(resolved.slug));
-        }
+        setLocated({ station: found.station, match: found });
+        setSaved(rememberLocation(found.station.slug));
       }
     } else {
       // Declined: the list is the answer, not an empty screen.
