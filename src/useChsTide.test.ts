@@ -8,7 +8,7 @@ import type { ChsStation } from "./chsStations";
 
 function victoriaStation(): ChsStation {
   return {
-    kind: "chs", provider: "chs", id: "chs-victoria", slug: "chs-victoria",
+    kind: "chs", series: "tide", provider: "chs", id: "chs-victoria", slug: "chs-victoria",
     name: "Victoria", context: "", latitude: 48.424, longitude: -123.371,
     aliases: [], timezone: "America/Vancouver",
   };

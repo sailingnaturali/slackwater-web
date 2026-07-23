@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { chsStations } from "./chsStations";
+import { chsCurrentStations, chsStations, isChsCurrent } from "./chsStations";
 
 describe("chsStations", () => {
   it("loads CHS tide reference ports from the registry, identity only", () => {
@@ -17,5 +17,26 @@ describe("chsStations", () => {
     // must not appear as tide stations. Active Pass is a gate.
     expect(chsStations.some((s) => s.name === "Active Pass")).toBe(false);
     expect(chsStations.length).toBeGreaterThanOrEqual(10);
+  });
+});
+
+describe("chsCurrentStations", () => {
+  it("loads the CHS current gates from the registry, identity only", () => {
+    const active = chsCurrentStations.find((s) => s.slug === "chs-active-pass");
+    expect(active).toBeDefined();
+    expect(active!.series).toBe("current");
+    expect(active!.latitude).toBeCloseTo(48.86, 1);
+    expect(active as unknown as { constituents?: unknown }).not.toHaveProperty("constituents");
+  });
+
+  it("has all 19 gates and none of the tide ports", () => {
+    expect(chsCurrentStations).toHaveLength(19);
+    expect(chsCurrentStations.some((s) => s.slug === "chs-victoria")).toBe(false);
+  });
+
+  it("tags the tide ports as series 'tide'", () => {
+    expect(chsStations.every((s) => s.series === "tide")).toBe(true);
+    expect(isChsCurrent(chsStations[0])).toBe(false);
+    expect(isChsCurrent(chsCurrentStations[0])).toBe(true);
   });
 });

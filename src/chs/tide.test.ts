@@ -13,6 +13,7 @@ const VICTORIA_ID = "5cebf1df3d0f4a073c4bbd1e";
 function victoriaStation(): ChsStation {
   return {
     kind: "chs",
+    series: "tide",
     provider: "chs",
     id: "chs-victoria",
     slug: "chs-victoria",
