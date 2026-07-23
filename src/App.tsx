@@ -18,6 +18,9 @@ import { nearestStations } from "./nearby";
 import { LocationGate, type GateResult } from "./LocationGate";
 import { Search } from "./SearchScreen";
 import { Settings } from "./Settings";
+import { useOfflineSync } from "./useOfflineSync";
+import { OfflineStatus } from "./OfflineStatus";
+import { OfflineManager } from "./OfflineManager";
 import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
 import { stationsNear, candidates, locateStation, type Candidate } from "./place";
@@ -121,6 +124,8 @@ export function App() {
   const [listOpen, setListOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [offlineOpen, setOfflineOpen] = useState(false);
+  const offline = useOfflineSync();
   const { units, setUnits, speedUnit, setSpeedUnit } = usePreferences();
 
   // The readout is a clock, not a snapshot - but only while nothing has
@@ -383,6 +388,7 @@ export function App() {
           <button className="settings-entry" onClick={() => setSettingsOpen(true)}>
             Settings
           </button>
+          <OfflineStatus view={offline} onOpen={() => setOfflineOpen(true)} />
         </div>
       </aside>
 
@@ -394,6 +400,7 @@ export function App() {
         onSpeedUnitChange={setSpeedUnit}
         onClose={() => setSettingsOpen(false)}
       />
+      <OfflineManager open={offlineOpen} view={offline} onClose={() => setOfflineOpen(false)} />
 
       {listOpen && <div className="scrim" onClick={() => setListOpen(false)} />}
 
