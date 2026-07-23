@@ -258,6 +258,90 @@ async function main() {
     }
     await offlinePage.close();
 
+    // Task 8: CHS ports have no offline predictions to fall back on (no
+    // constituents shipped — spec §9's whole point). With the network still
+    // cut, a CHS route must show the station identity and an honest "needs
+    // signal" message, never a blank chart or a dead spinner. Same offline
+    // browser context (same `cdp` emulation, new tab) as the NOAA check above.
+    const chsErrors = [];
+    const chsPage = await browser.newPage();
+    chsPage.on("pageerror", (err) => chsErrors.push(`pageerror: ${err.message}`));
+    chsPage.on("console", (msg) => {
+      // Unlike NOAA (synchronous, no fetch), the CHS adapter genuinely tries
+      // the network and is genuinely denied — Chrome logs that resource
+      // failure as a console.error itself, same false-positive class as the
+      // deliberate proof-fetch above. Expected here; a real app error is not.
+      if (msg.type() === "error" && !/Failed to load resource/.test(msg.text())) {
+        chsErrors.push(`console.error: ${msg.text()}`);
+      }
+    });
+    const chsCdp = await chsPage.createCDPSession();
+    await chsCdp.send("Network.enable");
+    await chsCdp.send("Network.emulateNetworkConditions", {
+      offline: true,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    });
+    await chsPage.goto(`${URL}tide/chs-victoria`, { waitUntil: "domcontentloaded" });
+
+    await chsPage.waitForSelector(".place h1", { timeout: 10_000 });
+    const chsStationName = await chsPage.$eval(".place h1", (el) => el.textContent);
+    if (!chsStationName) throw new Error("CHS offline: no station identity rendered");
+
+    // Not a blank chart, not a hanging spinner: the honest "needs signal"
+    // copy from App.tsx's offline branch, or the page never resolves out of
+    // "loading" — either way this selector is the proof, not a timeout.
+    await chsPage.waitForSelector(".reading.chs-signal", { timeout: 10_000 });
+    const chsSignalText = await chsPage.$eval(".reading.chs-signal", (el) => el.textContent);
+    if (!/needs a moment of signal/i.test(chsSignalText ?? "")) {
+      throw new Error(`CHS offline: expected the "needs signal" message, got: ${JSON.stringify(chsSignalText)}`);
+    }
+    // No chart panel renders without a TideState — confirms this is the
+    // degraded state, not a slow-but-successful render.
+    const chsChartCount = (await chsPage.$$(".chart")).length;
+    if (chsChartCount !== 0) throw new Error("CHS offline: a chart rendered with no data — expected none");
+
+    if (chsErrors.length) {
+      throw new Error(`CHS offline page reported errors:\n${chsErrors.join("\n")}`);
+    }
+    await chsPage.close();
+
+    // Regression guard: the CHS route above must not have broken NOAA's
+    // offline render (e.g. a shared code path throwing). Fresh tab, same cut
+    // network, a plain NOAA station.
+    const noaaErrors = [];
+    const noaaPage = await browser.newPage();
+    noaaPage.on("pageerror", (err) => noaaErrors.push(`pageerror: ${err.message}`));
+    noaaPage.on("console", (msg) => {
+      if (msg.type() === "error") noaaErrors.push(`console.error: ${msg.text()}`);
+    });
+    const noaaCdp = await noaaPage.createCDPSession();
+    await noaaCdp.send("Network.enable");
+    await noaaCdp.send("Network.emulateNetworkConditions", {
+      offline: true,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    });
+    await noaaPage.goto(`${URL}tide/friday-harbor`, { waitUntil: "domcontentloaded" });
+
+    await noaaPage.waitForSelector(".place h1", { timeout: 10_000 });
+    const noaaStationName = await noaaPage.$eval(".place h1", (el) => el.textContent);
+    if (noaaStationName !== "Friday Harbor") {
+      throw new Error(`NOAA offline regression: expected Friday Harbor, got: ${JSON.stringify(noaaStationName)}`);
+    }
+    const noaaHeight = await noaaPage.$eval(".reading .value", (el) => el.textContent);
+    if (!/\d/.test(noaaHeight ?? "")) {
+      throw new Error(`NOAA offline regression: expected a tide height, got: ${JSON.stringify(noaaHeight)}`);
+    }
+    await noaaPage.waitForSelector(".chart", { timeout: 5_000 });
+
+    if (noaaErrors.length) {
+      throw new Error(`NOAA offline regression page reported errors:\n${noaaErrors.join("\n")}`);
+    }
+    await noaaPage.close();
+
     if (errors.length) {
       throw new Error(`page reported errors:\n${errors.join("\n")}`);
     }
@@ -267,7 +351,9 @@ async function main() {
         `search reached "Everett" from ${popularCount} POPULAR stations, ` +
         `deep link rendered "${deepLinkStation}" at "${deepLinkHeight}", ` +
         `offline reload (network proved "${networkState}") rendered "${offlineStationName}" ` +
-        `at "${offlineHeight}" with ${offlineEventCount} events and all 41 stations counted`,
+        `at "${offlineHeight}" with ${offlineEventCount} events and all 41 stations counted, ` +
+        `CHS offline degraded gracefully at "${chsStationName}", ` +
+        `NOAA offline regression check rendered "${noaaStationName}" at "${noaaHeight}"`,
     );
   } finally {
     if (browser) await browser.close();
