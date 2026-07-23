@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StationCard } from "./StationCard";
 import type { ResolvedStation, TideState } from "./tides";
+import type { ChsStation } from "./chsStations";
+import type { CurrentState } from "./chs/current";
 
 const station: ResolvedStation = {
   id: "noaa-1",
@@ -59,5 +61,71 @@ describe("StationCard", () => {
       />,
     );
     expect(falling).toContain("dir falling");
+  });
+});
+
+const gate: ChsStation = {
+  kind: "chs",
+  series: "current",
+  provider: "chs",
+  id: "chs-malibu",
+  slug: "chs-malibu",
+  name: "Malibu Rapids",
+  context: "Princess Louisa Inlet",
+  latitude: 50.2,
+  longitude: -123.8,
+  aliases: [],
+  timezone: "America/Vancouver",
+};
+
+const flooding: CurrentState = {
+  signed: 2.1,
+  speed: 2.1,
+  phase: "flood",
+  setDegrees: 45,
+  floodDirection: 45,
+  ebbDirection: 225,
+  nextSlack: { time: new Date("2026-07-20T22:42:00Z"), kind: "slack" },
+  following: null,
+  events: [],
+  timeline: [],
+};
+
+describe("StationCard — currents", () => {
+  it("renders speed, a ▲ for flood, and the next slack time", () => {
+    const html = renderToStaticMarkup(
+      <StationCard station={gate} current={flooding} units="metric" onSelect={() => {}} />,
+    );
+    expect(html).toContain("Slack ·");
+    expect(html).toMatch(/\d{1,2}:\d{2} (AM|PM)/);
+    expect(html).toContain("2.1"); // speed in knots
+    expect(html).toContain("dir rising"); // ▲ for flood
+  });
+
+  it("names the phase and shows no arrow at slack", () => {
+    const slack = renderToStaticMarkup(
+      <StationCard
+        station={gate}
+        current={{ ...flooding, phase: "slack", speed: 0.05, signed: 0.05 }}
+        units="metric"
+        onSelect={() => {}}
+      />,
+    );
+    expect(slack).toContain("Slack");
+    expect(slack).not.toContain("dir rising");
+    expect(slack).not.toContain("dir falling");
+  });
+
+  it("names the phase without knots for a derived gate", () => {
+    const derived = renderToStaticMarkup(
+      <StationCard
+        station={gate}
+        current={{ ...flooding, derived: true }}
+        units="metric"
+        onSelect={() => {}}
+      />,
+    );
+    expect(derived).toContain("Flooding");
+    expect(derived).not.toContain("2.1");
   });
 });

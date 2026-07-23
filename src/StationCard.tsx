@@ -1,6 +1,24 @@
 import type { TideState } from "./tides";
 import type { Candidate } from "./place";
-import { distanceUnit, formatDistance, formatHeight, heightUnit, type Units } from "./units";
+import { currentPhaseWord, type CurrentState } from "./chs/current";
+import {
+  distanceUnit,
+  formatDistance,
+  formatHeight,
+  formatSpeed,
+  heightUnit,
+  speedUnitLabel,
+  type SpeedUnit,
+  type Units,
+} from "./units";
+
+// A current turn labelled for the card's next-line, mirroring "High"/"Low" for
+// tides. nextSlack is a slack by name, but the kind is typed wider — label it.
+const TURN_LABEL: Record<"slack" | "max-flood" | "max-ebb", string> = {
+  slack: "Slack",
+  "max-flood": "Max flood",
+  "max-ebb": "Max ebb",
+};
 
 // en-US, not the app's usual en-CA: the card wants "1:42 PM", and en-CA's
 // hour12 format renders "1:42 p.m." instead.
@@ -27,7 +45,9 @@ export function StationCard({
   station,
   km,
   state,
+  current,
   units,
+  speedUnit = "kn",
   selected,
   starred,
   onSelect,
@@ -37,7 +57,10 @@ export function StationCard({
   km?: number;
   /** Absent for a CHS port shown before its online reading has loaded — the card then shows identity only. */
   state?: TideState;
+  /** A current gate's reading. Mutually exclusive with `state`; when present the card renders the current layout. */
+  current?: CurrentState;
   units: Units;
+  speedUnit?: SpeedUnit;
   selected?: boolean;
   starred?: boolean;
   onSelect: () => void;
@@ -65,6 +88,11 @@ export function StationCard({
             {heightUnit(units)} · {cardTime(state.next.time, station.timezone)}
           </p>
         )}
+        {current?.nextSlack && (
+          <p className="station-card-next">
+            {TURN_LABEL[current.nextSlack.kind]} · {cardTime(current.nextSlack.time, station.timezone)}
+          </p>
+        )}
       </div>
       {state && (
         <div className="station-card-reading">
@@ -75,6 +103,27 @@ export function StationCard({
           <span className={state.rising ? "dir rising" : "dir falling"}>
             {state.rising ? "▲" : "▼"}
           </span>
+        </div>
+      )}
+      {current && (
+        <div className="station-card-reading">
+          <span className="station-card-value">
+            {/* A derived gate has no speed, and slack has no direction — both name
+                the phase, never knots (mirrors the detail readout). */}
+            {current.derived || current.phase === "slack" ? (
+              currentPhaseWord(current.phase)
+            ) : (
+              <>
+                {formatSpeed(current.speed, speedUnit)}
+                <abbr>{speedUnitLabel(speedUnit)}</abbr>
+              </>
+            )}
+          </span>
+          {current.phase !== "slack" && (
+            <span className={current.phase === "flood" ? "dir rising" : "dir falling"}>
+              {current.phase === "flood" ? "▲" : "▼"}
+            </span>
+          )}
         </div>
       )}
     </button>

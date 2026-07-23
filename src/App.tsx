@@ -361,6 +361,7 @@ export function App() {
           origin={origin}
           selectedId={station.id}
           units={units}
+          speedUnit={speedUnit}
           now={now}
           onSelect={choose}
           onToggleStar={toggleStar}

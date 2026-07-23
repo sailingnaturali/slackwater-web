@@ -1,12 +1,64 @@
 import { useState } from "react";
 import { distanceKm, predict, type Match, type ResolvedStation } from "./tides";
-import { isChs, type ChsStation } from "./chsStations";
+import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
+import { withNowCurrent } from "./chs/current";
+import { useChsCurrent } from "./useChsCurrent";
 import type { Candidate } from "./place";
-import type { Units } from "./units";
+import type { SpeedUnit, Units } from "./units";
 import type { NearbyStation } from "./nearby";
 import { StationCard } from "./StationCard";
 import { LocationCard } from "./LocationCard";
 import { RECENT_LIMIT, STARRED_LIMIT, NEARBY_ALL_LIMIT } from "./savedStations";
+
+/**
+ * One card in a group. Its own component so a current gate can load its reading
+ * via `useChsCurrent` (a hook — can't run inside the group's `.map`). A bundled
+ * tide station predicts synchronously; a CHS tide port still renders on identity
+ * until its own list-loading lands (see StationCard's `state` doc).
+ */
+function GroupCard({
+  station,
+  km,
+  units,
+  speedUnit,
+  now,
+  selected,
+  starred,
+  onSelect,
+  onToggleStar,
+}: {
+  station: Candidate;
+  km: number | null;
+  units: Units;
+  speedUnit: SpeedUnit;
+  now: Date;
+  selected: boolean;
+  starred: boolean;
+  onSelect: () => void;
+  onToggleStar?: () => void;
+}) {
+  // Cache-first (IndexedDB): free for a gate whose day is already cached, one
+  // fetch on first sight. `null` for any non-current station → the hook no-ops.
+  const chsCur = useChsCurrent(isChsCurrent(station) ? station : null, now);
+  const current = chsCur.state ? withNowCurrent(chsCur.state, now) : undefined;
+
+  return (
+    <StationCard
+      station={station}
+      km={km ?? undefined}
+      // A bundled tide station predicts offline; a CHS tide port renders on
+      // identity (undefined); a current gate carries its loaded reading.
+      state={isChs(station) ? undefined : predict(station, now)}
+      current={current}
+      units={units}
+      speedUnit={speedUnit}
+      selected={selected}
+      starred={starred}
+      onSelect={onSelect}
+      onToggleStar={onToggleStar}
+    />
+  );
+}
 
 export interface LocatedStation {
   /** Union: the located station can be a CHS port (e.g. Victoria). */
@@ -57,6 +109,7 @@ export function StationList({
   origin,
   selectedId,
   units,
+  speedUnit = "kn",
   now,
   onSelect,
   onToggleStar,
@@ -68,6 +121,7 @@ export function StationList({
   origin: { latitude: number; longitude: number } | null;
   selectedId: string;
   units: Units;
+  speedUnit?: SpeedUnit;
   now: Date;
   onSelect: (station: ResolvedStation | ChsStation) => void;
   onToggleStar?: (station: ResolvedStation | ChsStation) => void;
@@ -158,13 +212,12 @@ export function StationList({
             <ol className="station-cards">
               {visible.map(({ station, km }) => (
                 <li key={station.id}>
-                  <StationCard
+                  <GroupCard
                     station={station}
-                    km={km ?? undefined}
-                    // A CHS port has no synchronous prediction — render on
-                    // identity, mirroring LocationCard for the located CHS port.
-                    state={isChs(station) ? undefined : predict(station, now)}
+                    km={km}
                     units={units}
+                    speedUnit={speedUnit}
+                    now={now}
                     selected={station.id === selectedId}
                     starred={starredIds.has(station.id)}
                     onSelect={() => onSelect(station)}
