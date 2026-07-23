@@ -20,6 +20,25 @@ if (!existsSync(CHROME_PATH)) {
   process.exit(1);
 }
 
+// The offline-sync background prefetch fires CHS/IWLS fetches on every page
+// mount. In CI the runner can't reach api-iwls.dfo-mpo.gc.ca (and under the
+// offline-emulation blocks the fetch is cut on purpose), so Chrome logs the
+// failed request as a console.error the app cannot suppress — the app catches
+// the rejection and marks that download failed. This browser-level resource
+// noise is not an app error. pageerror is never filtered, so a real render
+// crash still fails the smoke. (Supersedes the per-block ERR_INTERNET_DISCONNECTED
+// filters the CHS offline checks used before the prefetch existed.)
+const IWLS_HOST = "api-iwls.dfo-mpo.gc.ca";
+function isChsFetchNoise(text) {
+  return (
+    text.includes(IWLS_HOST) ||
+    /blocked by CORS policy/.test(text) ||
+    /Failed to load resource: net::ERR_(FAILED|INTERNET_DISCONNECTED|NAME_NOT_RESOLVED|CONNECTION_REFUSED|TIMED_OUT|ADDRESS_UNREACHABLE)/.test(
+      text,
+    )
+  );
+}
+
 function waitForServer(url, timeoutMs = 15_000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
@@ -66,7 +85,7 @@ async function main() {
     const page = await browser.newPage();
     page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
     page.on("console", (msg) => {
-      if (msg.type() === "error") errors.push(`console.error: ${msg.text()}`);
+      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) errors.push(`console.error: ${msg.text()}`);
     });
 
     // domcontentloaded, not networkidle0: the PWA's service-worker precaching
@@ -165,7 +184,7 @@ async function main() {
     const deepLinkPage = await browser.newPage();
     deepLinkPage.on("pageerror", (err) => deepLinkErrors.push(`pageerror: ${err.message}`));
     deepLinkPage.on("console", (msg) => {
-      if (msg.type() === "error") deepLinkErrors.push(`console.error: ${msg.text()}`);
+      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) deepLinkErrors.push(`console.error: ${msg.text()}`);
     });
     await deepLinkPage.goto(`${URL}tide/everett/2026-07-20T14:35-07:00`, {
       waitUntil: "domcontentloaded",
@@ -232,7 +251,7 @@ async function main() {
     // what these are for.
     offlinePage.on("pageerror", (err) => offlineErrors.push(`pageerror: ${err.message}`));
     offlinePage.on("console", (msg) => {
-      if (msg.type() === "error") offlineErrors.push(`console.error: ${msg.text()}`);
+      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) offlineErrors.push(`console.error: ${msg.text()}`);
     });
 
     await offlinePage.reload({ waitUntil: "domcontentloaded" });
@@ -276,7 +295,7 @@ async function main() {
       // the network and is genuinely denied — Chrome logs that resource
       // failure as a console.error itself, same false-positive class as the
       // deliberate proof-fetch above. Expected here; a real app error is not.
-      if (msg.type() === "error" && !/Failed to load resource:.*ERR_INTERNET_DISCONNECTED/.test(msg.text())) {
+      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) {
         chsErrors.push(`console.error: ${msg.text()}`);
       }
     });
@@ -319,7 +338,7 @@ async function main() {
     const gatePage = await browser.newPage();
     gatePage.on("pageerror", (err) => gateErrors.push(`pageerror: ${err.message}`));
     gatePage.on("console", (msg) => {
-      if (msg.type() === "error" && !/Failed to load resource:.*ERR_INTERNET_DISCONNECTED/.test(msg.text())) {
+      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) {
         gateErrors.push(`console.error: ${msg.text()}`);
       }
     });
@@ -346,7 +365,7 @@ async function main() {
     const noaaPage = await browser.newPage();
     noaaPage.on("pageerror", (err) => noaaErrors.push(`pageerror: ${err.message}`));
     noaaPage.on("console", (msg) => {
-      if (msg.type() === "error") noaaErrors.push(`console.error: ${msg.text()}`);
+      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) noaaErrors.push(`console.error: ${msg.text()}`);
     });
     const noaaCdp = await noaaPage.createCDPSession();
     await noaaCdp.send("Network.enable");
