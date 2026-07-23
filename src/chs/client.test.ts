@@ -1,6 +1,6 @@
 // src/chs/client.test.ts
 import { describe, it, expect, vi } from "vitest";
-import { fetchSeries, IWLS_BASE } from "./client";
+import { fetchSeries, fetchStationMeta, IWLS_BASE } from "./client";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -45,5 +45,18 @@ describe("fetchSeries", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("fetchStationMeta", () => {
+  it("requests the metadata endpoint and returns flood/ebb directions", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: "abc", officialName: "Active Pass", floodDirection: 45, ebbDirection: 225 }),
+        { status: 200 }),
+    );
+    const meta = await fetchStationMeta("abc", fetchFn as unknown as typeof fetch);
+    expect(meta.floodDirection).toBe(45);
+    expect(meta.ebbDirection).toBe(225);
+    expect(fetchFn.mock.calls[0][0]).toContain("/stations/abc/metadata");
   });
 });

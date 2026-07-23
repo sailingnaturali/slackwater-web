@@ -41,3 +41,16 @@ export function fetchSeries(
 export function fetchStationList(fetchFn: typeof fetch = globalThis.fetch): Promise<IwlsStationMeta[]> {
   return getJson<IwlsStationMeta[]>(`${IWLS_BASE}/stations`, fetchFn);
 }
+
+export interface IwlsStationMetadata {
+  id: string;
+  officialName: string;
+  floodDirection?: number;
+  ebbDirection?: number;
+}
+
+export function fetchStationMeta(
+  stationId: string, fetchFn: typeof fetch = globalThis.fetch,
+): Promise<IwlsStationMetadata> {
+  return getJson<IwlsStationMetadata>(`${IWLS_BASE}/stations/${stationId}/metadata`, fetchFn);
+}
