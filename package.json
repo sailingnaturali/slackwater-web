@@ -34,7 +34,7 @@
     "suncalc": "^2.0.1"
   },
   "devDependencies": {
-    "@neaps/tide-database": "^0.8.20260719",
+    "@neaps/tide-database": "^0.8.20260722",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
