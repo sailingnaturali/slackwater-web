@@ -101,14 +101,19 @@ async function main() {
     if (declineButton === -1) throw new Error('no "Choose a station instead" button found');
     const buttons = await page.$$("button");
     await buttons[declineButton].click();
-    await page.waitForSelector(".location-card.unavailable .location-title", { timeout: 5_000 });
+    await page.waitForSelector(".location-card .location-title", { timeout: 5_000 });
 
     const locationTitle = await page.$eval(
-      ".location-card.unavailable .location-title",
+      ".location-card .location-title",
       (el) => el.textContent,
     );
-    if (locationTitle?.trim() !== "Location unavailable") {
-      throw new Error(`expected the unavailable-location card, got: ${JSON.stringify(locationTitle)}`);
+    // Declining doesn't blank the sidebar: CURRENT LOCATION renders a real
+    // title either way. Which one depends on the browser's geolocation
+    // permission — "Location blocked" when denied (headless default), the ask
+    // when still promptable — so accept either. The invariant is "not empty".
+    const VALID_TITLES = ["Location blocked", "See stations near you"];
+    if (!VALID_TITLES.includes(locationTitle?.trim())) {
+      throw new Error(`expected a location card title, got: ${JSON.stringify(locationTitle)}`);
     }
 
     const tideHeight = await page.$eval(".reading .value", (el) => el.textContent);
