@@ -1,8 +1,4 @@
 import { useEffect, useState } from "react";
-import { StationCard } from "./StationCard";
-import type { Match, TideState } from "./tides";
-import type { Candidate } from "./place";
-import type { Units } from "./units";
 
 const PinOff = () => (
   <span className="pin-off" aria-hidden="true">
@@ -15,9 +11,9 @@ const PinOff = () => (
 );
 
 /**
- * CURRENT LOCATION — always present, in one of three states.
- *
- * Located: the matched station's card.
+ * CURRENT LOCATION when there is no located station — one of two states.
+ * (A located station renders through the same GroupCard path as every list
+ * card, in StationList — never here, so readings can't drift between the two.)
  *
  * Askable: we haven't been asked yet (a deep link bypasses the gate, so a
  * first-time deep-link visitor never saw the ask). The permission is still
@@ -28,24 +24,8 @@ const PinOff = () => (
  * so a button pretending to would go nowhere. Say so instead.
  */
 export function LocationCard({
-  match,
-  station,
-  state,
-  units,
-  selected,
-  starred,
-  onSelect,
-  onToggleStar,
   onRequestLocation,
 }: {
-  match: Match | null;
-  station: Candidate | null;
-  state: TideState | null;
-  units: Units;
-  selected: boolean;
-  starred?: boolean;
-  onSelect: () => void;
-  onToggleStar?: () => void;
   /** Trigger the location ask inline (deep-link visitors never saw the gate). */
   onRequestLocation?: () => void;
 }) {
@@ -69,23 +49,6 @@ export function LocationCard({
       if (status) status.onchange = null;
     };
   }, []);
-
-  // A CHS port has no synchronous prediction (`state` is null until its online
-  // reading loads in the detail view), but it is still a located station — show
-  // the card on identity alone rather than the "unavailable" fallback.
-  if (match && station) {
-    return (
-      <StationCard
-        station={station}
-        state={state ?? undefined}
-        units={units}
-        selected={selected}
-        starred={starred}
-        onSelect={onSelect}
-        onToggleStar={onToggleStar}
-      />
-    );
-  }
 
   if (permission === "denied") {
     return (

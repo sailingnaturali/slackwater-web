@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -6,6 +6,33 @@ import { StationList } from "./StationList";
 import { resolvedStations, matchStation } from "./tides";
 import type { NearbyStation } from "./nearby";
 import type { ResolvedStation } from "./tides";
+import type { ChsStation } from "./chsStations";
+
+// The hook is IndexedDB/network-backed and SSR renders only its initial
+// "loading" state — hand any gate a ready reading so the card path is testable.
+vi.mock("./useChsCurrent", () => ({
+  useChsCurrent: (station: ChsStation | null) =>
+    station
+      ? {
+          state: {
+            signed: 2.1,
+            speed: 2.1,
+            phase: "flood",
+            setDegrees: 45,
+            floodDirection: 45,
+            ebbDirection: 225,
+            nextSlack: { time: new Date("2026-07-20T22:42:00Z"), kind: "slack" },
+            following: null,
+            events: [{ time: new Date("2026-07-20T22:42:00Z"), kind: "slack" }],
+            timeline: [
+              { time: new Date("2026-07-20T18:00:00Z"), signed: 2.1 },
+              { time: new Date("2026-07-20T20:00:00Z"), signed: 2.1 },
+            ],
+          },
+          status: "ready",
+        }
+      : { state: null, status: "loading" },
+}));
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -224,6 +251,37 @@ describe("StationList grouping", () => {
       container!.querySelector(".all-toggle")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(container!.querySelectorAll(".station-card").length).toBe(20);
+  });
+
+  it("shows a located current gate's reading — same card path as the list groups", () => {
+    const gate: ChsStation = {
+      kind: "chs",
+      series: "current",
+      provider: "chs",
+      id: "chs-malibu",
+      slug: "chs-malibu",
+      name: "Malibu Rapids",
+      context: "Princess Louisa Inlet",
+      latitude: 50.2,
+      longitude: -123.8,
+      aliases: [],
+      timezone: "America/Vancouver",
+    };
+    const html = renderToStaticMarkup(
+      <StationList
+        located={{ station: gate, match: { station: gate, distanceKm: 0.4, quality: "good" } }}
+        starred={[]}
+        recent={[]}
+        nearby={[]}
+        origin={{ latitude: 50.2, longitude: -123.8 }}
+        selectedId={gate.id}
+        units="metric"
+        now={now}
+        onSelect={() => {}}
+      />,
+    );
+    expect(html).toContain("dir rising"); // ▲ for flood, like the group cards
+    expect(html).toContain("2.1");
   });
 
   it("renders the location card inviting an ask when there is no location", () => {

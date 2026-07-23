@@ -175,19 +175,24 @@ export function StationList({
     <div className="stations">
       <section className="station-group">
         <p className="eyebrow">Current location{origin ? ` · ${wholeDegrees(origin)}` : ""}</p>
-        <LocationCard
-          match={located?.match ?? null}
-          station={located?.station ?? null}
-          // A CHS port has no synchronous prediction — the card renders on
-          // identity, and its reading loads in the detail view.
-          state={located && !isChs(located.station) ? predict(located.station, now) : null}
-          units={units}
-          selected={located?.station.id === selectedId}
-          starred={located ? starredIds.has(located.station.id) : false}
-          onSelect={() => located && onSelect(located.station)}
-          onToggleStar={onToggleStar && located ? () => onToggleStar(located.station) : undefined}
-          onRequestLocation={onRequestLocation}
-        />
+        {located ? (
+          // The same card path as the groups below — so a located current gate
+          // (or, later, a CHS tide port) loads its reading exactly like a
+          // listed one, instead of a second path that has to re-grow each hook.
+          <GroupCard
+            station={located.station}
+            km={null}
+            units={units}
+            speedUnit={speedUnit}
+            now={now}
+            selected={located.station.id === selectedId}
+            starred={starredIds.has(located.station.id)}
+            onSelect={() => onSelect(located.station)}
+            onToggleStar={onToggleStar ? () => onToggleStar(located.station) : undefined}
+          />
+        ) : (
+          <LocationCard onRequestLocation={onRequestLocation} />
+        )}
       </section>
 
       {groups.map((group) => {
