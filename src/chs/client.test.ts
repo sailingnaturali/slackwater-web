@@ -32,12 +32,18 @@ describe("fetchSeries", () => {
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
-  // ponytail: real backoff waits (1s+2s+4s ≈ 7s) exceed Vitest's 5s default;
-  // bump this test's timeout rather than faking timers or shrinking the backoff.
+  // ponytail: fake timers collapse the 1s+2s+4s backoff to ~0ms; real setTimeout
+  // only needed if getJson's backoff math itself must be verified under real clock.
   it("throws after exhausting retries", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({}, 500));
-    await expect(
-      fetchSeries("abc", "wlp", new Date(0), new Date(1), fetchFn as unknown as typeof fetch),
-    ).rejects.toThrow();
-  }, 10_000);
+    vi.useFakeTimers();
+    try {
+      const fetchFn = vi.fn().mockResolvedValue(jsonResponse({}, 500));
+      const result = fetchSeries("abc", "wlp", new Date(0), new Date(1), fetchFn as unknown as typeof fetch);
+      const assertion = expect(result).rejects.toThrow();
+      await vi.runAllTimersAsync();
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
