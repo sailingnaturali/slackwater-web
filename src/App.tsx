@@ -511,26 +511,24 @@ export function App() {
         {currentGate ? (
           curView && (
             <>
-              {curView.state.derived ? (
-                <section className="panel derived-note">
-                  <p className="muted">
-                    No CHS current station here — slack times are derived from{" "}
-                    high and low water at Point Atkinson (+25 min at high, +35 at low).
-                    The pass floods on the rising tide, ebbs on the falling one;{" "}
-                    <strong>speeds are not predicted</strong> (it runs to about 9 knots).
+              <section className="panel chart-panel">
+                <CurrentChart
+                  station={resolved}
+                  state={curView.state}
+                  now={curView.now}
+                  speedUnit={speedUnit}
+                  onScrub={scrub}
+                />
+                {/* The derived curve is a shape, not a speed — say so under it. */}
+                {curView.state.derived && (
+                  <p className="muted chart-note">
+                    Shape only — slack times are derived from high and low water at
+                    Point Atkinson (+25 min at high, +35 at low). Floods on the rising
+                    tide, ebbs on the falling one; <strong>speeds are not predicted</strong>{" "}
+                    (it runs to about 9 knots).
                   </p>
-                </section>
-              ) : (
-                <section className="panel chart-panel">
-                  <CurrentChart
-                    station={resolved}
-                    state={curView.state}
-                    now={curView.now}
-                    speedUnit={speedUnit}
-                    onScrub={scrub}
-                  />
-                </section>
-              )}
+                )}
+              </section>
               <EventList
                 station={station}
                 now={curView.now}

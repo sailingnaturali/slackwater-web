@@ -334,6 +334,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
 
 .chart-panel { padding: 1.25rem 1rem 0.75rem; }
 .chart { width: 100%; height: auto; display: block; }
+.chart-note { margin: 0.5rem 0.25rem 0; font-size: 0.8rem; line-height: 1.4; }
 .chart .grid { stroke: var(--hairline); stroke-width: 1; }
 .chart .axis {
   fill: var(--ink-faint);

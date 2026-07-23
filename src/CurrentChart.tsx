@@ -117,9 +117,13 @@ export function CurrentChart({
       className="chart"
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       role="img"
-      aria-label={`Current curve. Now ${formatSpeed(effSpeed, speedUnit)} ${speedUnitLabel(speedUnit)}, ${currentPhaseWord(
-        effPhase,
-      ).toLowerCase()}.`}
+      aria-label={
+        state.derived
+          ? `Current shape, no predicted speed. Now ${currentPhaseWord(effPhase).toLowerCase()}.`
+          : `Current curve. Now ${formatSpeed(effSpeed, speedUnit)} ${speedUnitLabel(speedUnit)}, ${currentPhaseWord(
+              effPhase,
+            ).toLowerCase()}.`
+      }
     >
       <defs>
         {/* Flood above the zero line, ebb below - reuses the app's existing
@@ -168,8 +172,13 @@ export function CurrentChart({
       <line x1={effectiveX} x2={effectiveX} y1={PAD.top} y2={PAD.top + plotH} className="nowline" />
       <circle cx={effectiveX} cy={y(effectiveSigned)} r="5" className="nowdot" />
       <text x={effectiveX} y={PAD.top - 8} className="axis readout" textAnchor={anchor}>
-        {effPhase === "slack" ? "Slack" : `${formatSpeed(effSpeed, speedUnit)} ${speedUnitLabel(speedUnit)}`} ·{" "}
-        {hour(effective)}
+        {/* A derived gate has no speed — the readout names the phase, never knots. */}
+        {state.derived
+          ? currentPhaseWord(effPhase)
+          : effPhase === "slack"
+            ? "Slack"
+            : `${formatSpeed(effSpeed, speedUnit)} ${speedUnitLabel(speedUnit)}`}{" "}
+        · {hour(effective)}
       </text>
 
       {/* Invisible hit target, wider than the curve itself so a finger or an

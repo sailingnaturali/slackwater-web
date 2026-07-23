@@ -129,6 +129,9 @@ export function withNowCurrent(state: CurrentState, now: Date): CurrentState {
 /** Within this of a derived slack, the gate reads "Slack" rather than flood/ebb. */
 export const DERIVED_SLACK_WINDOW_MIN = 12;
 
+/** Sampling step for the schematic shape curve. */
+const SCHEMATIC_STEP_MS = 10 * 60_000;
+
 /** wlp-hilo extremes strictly alternate; each is a high iff it exceeds its neighbour. */
 function classifyHilo(hilo: IwlsSample[]): { time: Date; high: boolean }[] {
   const pts = hilo.map((s) => ({ time: new Date(s.eventDate), level: s.value }));
@@ -136,6 +139,24 @@ function classifyHilo(hilo: IwlsSample[]): { time: Date; high: boolean }[] {
     time: p.time,
     high: p.level > (i > 0 ? pts[i - 1].level : pts[i + 1]?.level ?? p.level),
   }));
+}
+
+/**
+ * A magnitude-LESS shape for the chart, normalised to [-1, 1] — NOT a speed.
+ * Between two consecutive slacks the current traces a half-sine, signed by
+ * phase (flood after a low-water slack, ebb after a high-water slack) and
+ * peaking at ±1 mid-cycle. It exists only so the derived gate has a curve to
+ * draw and scrub; the axis carries no knots. Zero outside the slack range.
+ */
+export function schematicSignedAt(slacks: CurrentEvent[], t: number): number {
+  for (let i = 1; i < slacks.length; i++) {
+    const a = slacks[i - 1].time.getTime(), b = slacks[i].time.getTime();
+    if (t >= a && t <= b) {
+      const sign = slacks[i - 1].highWater ? -1 : 1; // ebb after HW slack, flood after LW slack
+      return sign * Math.sin(Math.PI * ((t - a) / (b - a)));
+    }
+  }
+  return 0;
 }
 
 function derivedNowFields(
@@ -150,10 +171,12 @@ function derivedNowFields(
   const rising = nextSlack ? nextSlack.highWater! : !events[events.length - 1]?.highWater;
   const phase: CurrentState["phase"] =
     best <= DERIVED_SLACK_WINDOW_MIN * 60_000 ? "slack" : rising ? "flood" : "ebb";
-  return { signed: 0, speed: 0, phase, setDegrees: 0, nextSlack, following: null };
+  // `signed` positions the chart's now-dot on the schematic curve; `speed` stays
+  // 0 because no magnitude is known — nothing renders it as knots for a derived gate.
+  return { signed: schematicSignedAt(events, nowMs), speed: 0, phase, setDegrees: 0, nextSlack, following: null };
 }
 
-/** Reference-port high/low water → a derived gate's slack times + flood/ebb phase. */
+/** Reference-port high/low water → a derived gate's slack times, flood/ebb phase, and schematic curve. */
 export function deriveCurrentState(
   hilo: IwlsSample[], hwLagMin: number, lwLagMin: number, now: Date,
 ): CurrentState {
@@ -162,9 +185,16 @@ export function deriveCurrentState(
     kind: "slack",
     highWater: e.high,
   }));
+  const timeline: { time: Date; signed: number }[] = [];
+  if (events.length >= 2) {
+    const end = events[events.length - 1].time.getTime();
+    for (let t = events[0].time.getTime(); t <= end; t += SCHEMATIC_STEP_MS) {
+      timeline.push({ time: new Date(t), signed: schematicSignedAt(events, t) });
+    }
+  }
   return {
     ...derivedNowFields(events, now),
-    floodDirection: 0, ebbDirection: 0, events, timeline: [], derived: true,
+    floodDirection: 0, ebbDirection: 0, events, timeline, derived: true,
   };
 }
 

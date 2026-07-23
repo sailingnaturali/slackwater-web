@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
-  compass16, toCurrentState, withNowCurrent, chsCurrentDay, deriveCurrentState, SLACK_KN,
+  compass16, toCurrentState, withNowCurrent, chsCurrentDay, deriveCurrentState, schematicSignedAt, SLACK_KN,
 } from "./current";
 import { memoryCache } from "./cache";
 import events from "./fixtures/active-pass-events.json";
@@ -77,7 +77,9 @@ describe("deriveCurrentState (tide-derived gate, e.g. Malibu Rapids)", () => {
   it("places a slack HW+25 / LW+35 after each extreme, tagged by origin, with no speed", () => {
     const s = deriveCurrentState(hilo, HW, LW, new Date("2026-07-23T06:00:00Z"));
     expect(s.derived).toBe(true);
-    expect(s.timeline).toEqual([]);
+    // A magnitude-less schematic curve: normalized to [-1, 1], never knots.
+    expect(s.timeline.length).toBeGreaterThan(0);
+    expect(s.timeline.every((p) => p.signed >= -1 && p.signed <= 1)).toBe(true);
     expect(s.events.map((e) => e.kind)).toEqual(["slack", "slack", "slack", "slack"]);
     expect(s.events.every((e) => e.speed === undefined)).toBe(true);
     // LW 03:00 → 03:35 (low origin); HW 09:00 → 09:25 (high origin).
@@ -102,6 +104,14 @@ describe("deriveCurrentState (tide-derived gate, e.g. Malibu Rapids)", () => {
     const s = deriveCurrentState(hilo, HW, LW, new Date("2026-07-23T06:00:00Z"));
     expect(s.nextSlack?.time.toISOString()).toBe("2026-07-23T09:25:00.000Z");
     expect(s.following).toBeNull();
+  });
+
+  it("schematic shape: flood positive, ebb negative, zero at the slacks", () => {
+    const s = deriveCurrentState(hilo, HW, LW, new Date("2026-07-23T06:00:00Z"));
+    const at = (iso: string) => schematicSignedAt(s.events, Date.parse(iso));
+    expect(at("2026-07-23T06:00:00Z")).toBeGreaterThan(0);   // mid-flood (LW→HW slack)
+    expect(at("2026-07-23T12:30:00Z")).toBeLessThan(0);      // mid-ebb (HW→LW slack)
+    expect(Math.abs(at("2026-07-23T09:25:00Z"))).toBeLessThan(1e-9); // on a slack ⇒ 0
   });
 });
 

@@ -48,6 +48,8 @@ type RegistryEntry = {
   provider: string;
   kind?: "tide" | "current";
   aliases?: string[];
+  /** Present on a derived gate; `reference` is another registry key (a tide port). */
+  derived?: { reference: string; hwLagMinutes: number; lwLagMinutes: number };
 };
 
 /** A bundled NOAA station has no `kind`; only CHS ports carry the discriminant. */
@@ -72,6 +74,22 @@ function toChsStation(key: string, e: RegistryEntry, series: "tide" | "current")
     longitude: e.position[1],
     aliases: e.aliases ?? [],
     timezone: TIMEZONE,
+    ...(e.derived ? { derived: resolveDerived(key, e.derived) } : {}),
+  };
+}
+
+// Resolve a derived gate's reference key to the tide port's name + position, so
+// the fetch layer can bind the reference series without another registry lookup.
+// The registry validator guarantees the reference exists and is a tide port.
+function resolveDerived(
+  key: string, d: NonNullable<RegistryEntry["derived"]>,
+): DerivedGateConfig {
+  const ref = entries[d.reference];
+  if (!ref) throw new Error(`derived gate ${key}: reference ${d.reference} missing from registry`);
+  return {
+    reference: { name: ref.name, latitude: ref.position[0], longitude: ref.position[1] },
+    hwLagMin: d.hwLagMinutes,
+    lwLagMin: d.lwLagMinutes,
   };
 }
 
@@ -79,32 +97,11 @@ export const chsStations: ChsStation[] = Object.entries(entries)
   .filter(([, e]) => e.provider === "chs" && e.kind === "tide")
   .map(([key, e]) => toChsStation(key, e, "tide"));
 
-// The 19 Inside-Passage gates carry no `kind` field (ports carry kind:"tide"),
-// so "chs and not a tide port" is exactly the gate set. Current-only on web
-// (spec §5c): a gate reports current, never a paired tide.
-const registryCurrentStations: ChsStation[] = Object.entries(entries)
+// The Inside-Passage gates carry no `kind` field (ports carry kind:"tide"), so
+// "chs and not a tide port" is exactly the gate set. Current-only on web (spec
+// §5c): a gate reports current, never a paired tide. A derived gate (Malibu
+// Rapids — CHS publishes no current there) is a current gate too; it carries a
+// `derived` block and resolves its slack from a reference tide port.
+export const chsCurrentStations: ChsStation[] = Object.entries(entries)
   .filter(([, e]) => e.provider === "chs" && e.kind !== "tide")
   .map(([key, e]) => toChsStation(key, e, "current"));
-
-// Gates CHS publishes no current for: slack is derived from a reference tide
-// port. Everyone types these in (Malibu Rapids is the classic ~9 kn gate at the
-// entrance to Princess Louisa Inlet), so they must be searchable even though
-// CHS has no current station there. Lags are the cruising-community consensus:
-// slack ≈ Point Atkinson HW+25 / LW+35 min (Points North seminar / Waggoner).
-// TODO promote to station-corrections once currents-mcp/chs-constituents can derive.
-export const derivedGates: ChsStation[] = [
-  {
-    kind: "chs", series: "current", provider: "chs",
-    id: "chs-malibu-rapids", slug: "chs-malibu-rapids",
-    name: "Malibu Rapids", context: "Princess Louisa Inlet",
-    latitude: 50.163, longitude: -123.85, // Malibu Islet
-    aliases: ["princess louisa", "malibu islet"],
-    timezone: TIMEZONE,
-    derived: {
-      reference: { name: "Point Atkinson", latitude: 49.337, longitude: -123.254 },
-      hwLagMin: 25, lwLagMin: 35,
-    },
-  },
-];
-
-export const chsCurrentStations: ChsStation[] = [...registryCurrentStations, ...derivedGates];
