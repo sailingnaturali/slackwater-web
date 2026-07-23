@@ -4,6 +4,7 @@ import { createTidePredictor } from "@neaps/tide-predictor";
 // (1.2.x needed the data hand-imported here; that blanked the page.)
 import { createBundledResolver } from "@sailingnaturali/station-corrections";
 import { getTimes as getSunTimes } from "suncalc";
+import type { ChsStation } from "./chsStations";
 import stationData from "./data/stations.json";
 
 export interface Station {
@@ -199,7 +200,10 @@ export interface DayEvent {
  * (48-49°N) so this never fires today, but a null is dropped rather than
  * rendered as a row.
  */
-function sunEvents(station: Station, day: Date): DayEvent[] {
+function sunEvents(
+  station: { latitude: number; longitude: number; timezone: string },
+  day: Date,
+): DayEvent[] {
   const target = localDay(day, station.timezone);
   const events: DayEvent[] = [];
   for (const offset of [-1, 0, 1]) {
@@ -232,6 +236,31 @@ export function dayEvents(station: Station, day: Date): DayEvent[] {
   );
 }
 
+/**
+ * The same day's schedule, but rebuilt from an already-computed `TideState`
+ * rather than the constituents.
+ *
+ * A CHS port's harmonics aren't ours to hold, so `predictRange` can't run for
+ * one — its turns arrive as a finished `TideState` from the online adapter.
+ * The turns come from `state.extremes`; sunrise/sunset still compute locally
+ * from the station's position. Paging past the state's window yields an empty
+ * day, which the table already renders honestly.
+ */
+export function dayEventsFromState(
+  state: TideState,
+  station: { latitude: number; longitude: number; timezone: string },
+  day: Date,
+): DayEvent[] {
+  const tides: DayEvent[] = extremesOn(state, day, station.timezone).map((extreme) => ({
+    time: extreme.time,
+    kind: extreme.high ? "high" : "low",
+    level: extreme.level,
+  }));
+  return [...tides, ...sunEvents(station, day)].sort(
+    (a, b) => a.time.getTime() - b.time.getTime(),
+  );
+}
+
 /** Great-circle distance in kilometres. */
 export function distanceKm(
   a: { latitude: number; longitude: number },
@@ -248,7 +277,8 @@ export function distanceKm(
 }
 
 export interface Match {
-  station: Station;
+  /** Union because a matched station can be a CHS port; only distance/quality are read downstream. */
+  station: Station | ChsStation;
   distanceKm: number;
   /**
    * How much to trust this station for the requested position. Distance alone
@@ -258,10 +288,16 @@ export interface Match {
   quality: "good" | "approximate" | "nearest";
 }
 
-/** M2 phase spread, in minutes, across the candidates nearest a position. */
-export function m2SpreadMinutes(candidates: Station[]): number {
+/**
+ * M2 phase spread, in minutes, across the candidates nearest a position.
+ *
+ * Accepts anything with (optional) constituents so a CHS port — which carries
+ * none — can sit in the same candidate pool: it simply contributes no phase to
+ * the spread, exactly as if it were absent.
+ */
+export function m2SpreadMinutes(candidates: (Station | ChsStation)[]): number {
   const phases = candidates
-    .map((s) => s.constituents.find((c) => c.name === "M2")?.phase)
+    .map((s) => ("constituents" in s ? s.constituents : undefined)?.find((c) => c.name === "M2")?.phase)
     .filter((p): p is number => p != null);
   if (phases.length < 2) return 0;
   // M2 advances 28.98°/hr, so degrees convert to minutes directly.

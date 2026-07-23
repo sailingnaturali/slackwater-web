@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { distanceKm, m2SpreadMinutes, matchQuality, type Match, type ResolvedStation } from "./tides";
+import { distanceKm, m2SpreadMinutes, matchQuality, type Match } from "./tides";
 import { distanceUnit, formatDistance, type Units } from "./units";
 import { setPlaceStation } from "./savedStations";
-import type { Place } from "./place";
+import type { Place, Candidate } from "./place";
 
 // Same three buckets as LocationCard/App — copied rather than exported and
 // shared, matching how each of those already keeps its own local copy.
@@ -21,7 +21,7 @@ const QUALITY_COPY: Record<Match["quality"], string> = {
  * different reference points, which is the inconsistency this task exists to
  * resolve.
  */
-function qualityNear(place: Place, station: ResolvedStation, neighbours: ResolvedStation[]) {
+function qualityNear(place: Place, station: Candidate, neighbours: Candidate[]) {
   return matchQuality(distanceKm(place, station), m2SpreadMinutes(neighbours));
 }
 
@@ -41,11 +41,11 @@ export function StationChooser({
   onChoose,
 }: {
   place: Place;
-  current: ResolvedStation;
+  current: Candidate;
   /** Nearest-first; always includes `current` (see `PositionMatch.alternatives`). */
-  alternatives: ResolvedStation[];
+  alternatives: Candidate[];
   units: Units;
-  onChoose: (station: ResolvedStation) => void;
+  onChoose: (station: Candidate) => void;
 }) {
   const [open, setOpen] = useState(false);
 

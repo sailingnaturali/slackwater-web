@@ -1,5 +1,6 @@
 import { StationCard } from "./StationCard";
-import type { Match, ResolvedStation, TideState } from "./tides";
+import type { Match, TideState } from "./tides";
+import type { Candidate } from "./place";
 import type { Units } from "./units";
 
 export const QUALITY_COPY: Record<Match["quality"], string> = {
@@ -38,7 +39,7 @@ export function LocationCard({
   onToggleStar,
 }: {
   match: Match | null;
-  station: ResolvedStation | null;
+  station: Candidate | null;
   state: TideState | null;
   units: Units;
   selected: boolean;
@@ -46,12 +47,15 @@ export function LocationCard({
   onSelect: () => void;
   onToggleStar?: () => void;
 }) {
-  if (match && station && state) {
+  // A CHS port has no synchronous prediction (`state` is null until its online
+  // reading loads in the detail view), but it is still a located station — show
+  // the card on identity alone rather than the "unavailable" fallback.
+  if (match && station) {
     return (
       <div className="location-card">
         <StationCard
           station={station}
-          state={state}
+          state={state ?? undefined}
           units={units}
           selected={selected}
           starred={starred}

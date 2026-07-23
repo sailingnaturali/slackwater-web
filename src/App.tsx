@@ -20,7 +20,9 @@ import { Search } from "./SearchScreen";
 import { Settings } from "./Settings";
 import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
-import { stationsNear } from "./place";
+import { stationsNear, candidates, type Candidate } from "./place";
+import { isChs, type ChsStation } from "./chsStations";
+import { useChsTide } from "./useChsTide";
 import { useLocation } from "./useLocation";
 import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
 import { parseUrl, buildUrl } from "./url";
@@ -49,11 +51,13 @@ export function App() {
   // Parsed once, at mount, from whatever URL the page loaded with — a shared
   // deep link. Later navigation goes through `history.replaceState` below,
   // not another read of `window.location`.
-  const [urlMatch] = useState(() => parseUrl(window.location.pathname, resolvedStations));
+  const [urlMatch] = useState(() => parseUrl(window.location.pathname, candidates));
 
   // Returning visitors skip the ask; the browser remembers the grant anyway.
   const [gated, setGated] = useState(() => !localStorage.getItem(SEEN_GATE));
-  const [station, setStation] = useState<Station>(() => urlMatch?.station ?? FALLBACK);
+  // Either a bundled NOAA station or a CHS port — the viewed station drives the
+  // whole detail view, and CHS ports are named stations too (spec §7).
+  const [station, setStation] = useState<Station | ChsStation>(() => urlMatch?.station ?? FALLBACK);
   const [match, setMatch] = useState<Match | null>(null);
   const [saved, setSaved] = useState<Saved>(loadSaved);
   // Separate from `match`: CURRENT LOCATION keeps showing where you are even
@@ -154,7 +158,20 @@ export function App() {
     setGated(false);
   }
 
-  const state = useMemo(() => predict(station, now), [station, now]);
+  // Two engines, one shape. A bundled station predicts synchronously from its
+  // constituents; a CHS port has none, so its identical `TideState` arrives
+  // from the online adapter via `useChsTide`. The hook is called every render
+  // (rules of hooks) but handed `null` — and left idle — while a NOAA station
+  // is in view. Once a `TideState` exists, everything below is provenance-blind.
+  const chsStation = isChs(station) ? station : null;
+  const chs = useChsTide(chsStation, now);
+  const noaaState = useMemo(
+    () => (isChs(station) ? null : predict(station, now)),
+    [station, now],
+  );
+  const state = chsStation ? chs.state : noaaState;
+  // NOAA is always "ready" (synchronous); CHS carries loading/offline through.
+  const status = chsStation ? chs.status : "ready";
 
   /**
    * The hero's distance and quality must describe the same thing the chooser
@@ -173,8 +190,11 @@ export function App() {
     }
     return match ? { km: match.distanceKm, quality: match.quality } : null;
   }, [live.place, match]);
-  const resolved = useMemo(
-    () => resolvedStations.find((s) => s.id === station.id)!,
+  // The display identity for the viewed station: a CHS port already carries its
+  // own name/context/position; a bundled station maps to its resolved record.
+  // The `!` is sound — every NOAA station has a 1:1 resolved entry.
+  const resolved: Candidate = useMemo(
+    () => (isChs(station) ? station : resolvedStations.find((s) => s.id === station.id)!),
     [station],
   );
 
@@ -200,7 +220,7 @@ export function App() {
   if (searchOpen) {
     return (
       <Search
-        stations={resolvedStations}
+        stations={candidates}
         units={units}
         now={now}
         selectedId={station.id}
@@ -221,11 +241,11 @@ export function App() {
       timeZone: station.timezone,
     });
 
-  const untilNext = state.next
+  const untilNext = state?.next
     ? Math.round((state.next.time.getTime() - now.getTime()) / 60_000)
     : null;
 
-  function choose(next: ResolvedStation) {
+  function choose(next: Candidate) {
     setStation(next);
     // The badge describes how well an automatic snap fits. A deliberate pick
     // needs no hedging — the user said which station they meant.
@@ -246,7 +266,7 @@ export function App() {
     history.replaceState(null, "", buildUrl(resolved, next));
   }
 
-  function toggleStar(target: ResolvedStation) {
+  function toggleStar(target: Candidate) {
     setSaved(saved.starred.includes(target.slug) ? unstar(target.slug) : star(target.slug));
   }
 
@@ -324,49 +344,83 @@ export function App() {
             )}
           </div>
 
-          <p className="reading">
-            <span className={state.rising ? "dir rising" : "dir falling"}>
-              {state.rising ? "▲ Rising" : "▼ Falling"}
-            </span>
-            <span className="value">
-              {formatHeight(state.level, units)}
-              <abbr>{heightUnit(units)}</abbr>
-            </span>
-          </p>
+          {/* Provenance-blind once `state` exists. A CHS port with no reading
+              yet shows an honest line, never an empty chart or a dead spinner
+              (spec §7c). */}
+          {state ? (
+            <>
+              <p className="reading">
+                <span className={state.rising ? "dir rising" : "dir falling"}>
+                  {state.rising ? "▲ Rising" : "▼ Falling"}
+                </span>
+                <span className="value">
+                  {formatHeight(state.level, units)}
+                  <abbr>{heightUnit(units)}</abbr>
+                </span>
+              </p>
 
-          {state.next && untilNext !== null && (
-            <p className="next">
-              Next {state.next.high ? "high" : "low"} of{" "}
-              <strong>
-                {formatHeight(state.next.level, units)} {heightUnit(units)}
-              </strong>{" "}
-              at {time(state.next.time)}
-              <span className="muted">
-                {" "}
-                · in {Math.floor(untilNext / 60)}h {untilNext % 60}m
-              </span>
+              {state.next && untilNext !== null && (
+                <p className="next">
+                  Next {state.next.high ? "high" : "low"} of{" "}
+                  <strong>
+                    {formatHeight(state.next.level, units)} {heightUnit(units)}
+                  </strong>{" "}
+                  at {time(state.next.time)}
+                  <span className="muted">
+                    {" "}
+                    · in {Math.floor(untilNext / 60)}h {untilNext % 60}m
+                  </span>
+                </p>
+              )}
+            </>
+          ) : status === "offline" ? (
+            <p className="reading chs-signal">
+              <span className="dir">Canadian data needs a moment of signal.</span>
+              <span className="muted">Reconnect and Victoria will load.</span>
+            </p>
+          ) : (
+            <p className="reading chs-loading">
+              <span className="muted">Loading Canadian tide data…</span>
             </p>
           )}
         </section>
 
-        <section className="panel chart-panel">
-          <TideChart station={resolved} state={state} now={now} units={units} onScrub={scrub} />
-        </section>
+        {state && (
+          <section className="panel chart-panel">
+            <TideChart station={resolved} state={state} now={now} units={units} onScrub={scrub} />
+          </section>
+        )}
 
-        <EventList station={station} now={now} units={units} />
+        {state && (
+          <EventList
+            station={station}
+            now={now}
+            units={units}
+            state={isChs(station) ? state : undefined}
+          />
+        )}
 
         <footer>
           <p className="warn">
             Astronomical prediction only — <strong>not for navigation</strong>.
           </p>
-          <p className="muted">
-            Heights above {station.chartDatum}, times local to the station. {stations.length}{" "}
-            public-domain stations from{" "}
-            <a href="https://github.com/openwatersio/tide-database">NOAA via tide-database</a>,
-            computed on your device. Canadian stations are not bundled — their published
-            harmonics carry a licence that does not permit redistribution, so BC water is
-            coming from CHS online at lower confidence.
-          </p>
+          {isChs(station) ? (
+            <p className="muted">
+              Tide data for {resolved.name} is served live from the{" "}
+              <a href="https://tides.gc.ca/">Canadian Hydrographic Service</a> (CHS) under
+              licence — heights and times as published by CHS, not computed on your device.
+              Not to be used for navigation (CHS clause 10).
+            </p>
+          ) : (
+            <p className="muted">
+              Heights above {station.chartDatum}, times local to the station. {stations.length}{" "}
+              public-domain stations from{" "}
+              <a href="https://github.com/openwatersio/tide-database">NOAA via tide-database</a>,
+              computed on your device. Canadian stations are not bundled — their published
+              harmonics carry a licence that does not permit redistribution, so BC water is
+              coming from CHS online at lower confidence.
+            </p>
+          )}
           <p className="muted">
             <a href="https://github.com/sailingnaturali/slackwater-web">Source</a> · GPL-3.0 ·{" "}
             <a href="https://sailingnaturali.com">Sailing Naturali</a>

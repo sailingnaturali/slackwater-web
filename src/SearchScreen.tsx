@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { predict, type ResolvedStation } from "./tides";
+import { predict } from "./tides";
+import { isChs } from "./chsStations";
+import type { Candidate } from "./place";
 import type { Units } from "./units";
 import { StationCard } from "./StationCard";
 import { searchStations } from "./search";
@@ -22,11 +24,11 @@ export function Search({
   onSelect,
   onCancel,
 }: {
-  stations: ResolvedStation[];
+  stations: Candidate[];
   units: Units;
   now: Date;
   selectedId: string;
-  onSelect: (station: ResolvedStation) => void;
+  onSelect: (station: Candidate) => void;
   onCancel: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -34,7 +36,7 @@ export function Search({
   const popular = useMemo(
     () =>
       POPULAR_SLUGS.map((slug) => stations.find((s) => s.slug === slug)).filter(
-        (s): s is ResolvedStation => s != null,
+        (s): s is Candidate => s != null,
       ),
     [stations],
   );
@@ -71,7 +73,9 @@ export function Search({
             <li key={station.id}>
               <StationCard
                 station={station}
-                state={predict(station, now)}
+                // CHS ports have no bundled harmonics — the result shows
+                // identity; the reading loads when the station is opened.
+                state={isChs(station) ? undefined : predict(station, now)}
                 units={units}
                 selected={station.id === selectedId}
                 onSelect={() => onSelect(station)}

@@ -302,6 +302,10 @@ button.ghost:hover { border-color: var(--sn-paper); }
   flex-wrap: wrap;
   margin: 1.75rem 0 0.5rem;
 }
+/* CHS not-ready states reuse the reading row but stack their two lines. */
+.reading.chs-signal,
+.reading.chs-loading { flex-direction: column; gap: 0.35rem; }
+.reading.chs-signal .dir { color: var(--ink-soft); font-size: 1.05rem; }
 
 .dir {
   font-family: var(--font-mono);
@@ -682,6 +686,8 @@ dialog.settings::backdrop { background: rgba(0, 24, 60, 0.55); }
 }
 
 .settings-section .eyebrow { color: var(--sn-leaf); margin-bottom: 0.6rem; }
+.settings-section + .settings-section { margin-top: 1.5rem; }
+.settings-note { margin: 0; color: var(--ink-soft); font-size: 0.88rem; line-height: 1.45; }
 
 .segmented {
   display: flex;

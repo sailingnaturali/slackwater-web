@@ -1,6 +1,9 @@
 import { distanceKm, type Station } from "./tides";
 
-export interface NearbyStation<T extends Station = Station> {
+/** Anything with a position can be ranked by distance — bundled or CHS. */
+type Locatable = { latitude: number; longitude: number };
+
+export interface NearbyStation<T extends Locatable = Station> {
   station: T;
   km: number;
 }
@@ -11,7 +14,7 @@ export interface NearbyStation<T extends Station = Station> {
  * Bounded deliberately: a list of everything sorted by distance is not
  * "nearby", it is the whole list in a different order.
  */
-export function nearestStations<T extends Station>(
+export function nearestStations<T extends Locatable>(
   origin: { latitude: number; longitude: number },
   stations: T[],
   limit: number,

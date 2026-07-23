@@ -8,10 +8,10 @@ import type { Units } from "./units";
  * focus trapping, Escape-to-close and the backdrop for free, and getting
  * those right by hand is how modals become inaccessible.
  *
- * Only TIDE HEIGHT is here. The prototype also has CURRENT SPEED and a
- * boat-relative SLACK LIMIT, but this client ships tide stations only —
- * there is no current to show a speed for or a slack window to size. One
- * section until currents arrive.
+ * TIDE HEIGHT plus the CHS licence consent. The prototype also has CURRENT
+ * SPEED and a boat-relative SLACK LIMIT, but this client ships tide stations
+ * only — there is no current to show a speed for or a slack window to size,
+ * so those wait until currents arrive.
  */
 export function Settings({
   open,
@@ -62,6 +62,14 @@ export function Settings({
             Meters
           </button>
         </div>
+      </section>
+
+      <section className="settings-section">
+        <p className="eyebrow">Canadian tide data</p>
+        <p className="settings-note">
+          British Columbia stations are served live from the Canadian Hydrographic Service.
+          By using this product you consent to using the CHS API and abiding by its licence.
+        </p>
       </section>
     </dialog>
   );

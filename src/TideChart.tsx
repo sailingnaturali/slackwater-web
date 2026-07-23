@@ -1,5 +1,5 @@
 import { useEffect, useState, type PointerEvent } from "react";
-import { extremesOn, snapToTurn, type ResolvedStation, type TideState } from "./tides";
+import { extremesOn, snapToTurn, type TideState } from "./tides";
 import { formatHeight, heightUnit, type Units } from "./units";
 
 /** Spoken aloud by a screen reader, so the unit is spelled out rather than abbreviated. */
@@ -40,7 +40,10 @@ export function TideChart({
   units,
   onScrub,
 }: {
-  station: ResolvedStation;
+  // Only identity is read (id for the scrub reset, timezone for formatting);
+  // all tide data rides on `state`, so this renders identically for a bundled
+  // or a CHS station — provenance-blind by construction (spec §7).
+  station: { id: string; timezone: string };
   state: TideState;
   now: Date;
   units: Units;

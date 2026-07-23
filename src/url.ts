@@ -1,7 +1,7 @@
-import type { ResolvedStation } from "./tides";
+import type { Candidate } from "./place";
 
 export interface ParsedUrl {
-  station: ResolvedStation;
+  station: Candidate;
   t: Date | null;
   /** False when the URL segment isn't the station's current slug — caller should redirect to the canonical form. */
   canonical: boolean;
@@ -16,12 +16,12 @@ const MAX_AGE_MS = 2 * 365 * 24 * 60 * 60 * 1000;
  * means adopting it later is a data change (wiring the field through
  * resolvedStations in tides.ts), not a code change.
  */
-function formerSlugs(station: ResolvedStation): string[] {
-  return (station as ResolvedStation & { formerSlugs?: string[] }).formerSlugs ?? [];
+function formerSlugs(station: Candidate): string[] {
+  return (station as Candidate & { formerSlugs?: string[] }).formerSlugs ?? [];
 }
 
 /** A provider id like `noaa/9447659` as it appears in a URL. */
-function providerSegment(station: ResolvedStation): string {
+function providerSegment(station: Candidate): string {
   return station.id.replace(/\//g, "-");
 }
 
@@ -33,8 +33,8 @@ function providerSegment(station: ResolvedStation): string {
  */
 function findStation(
   segment: string,
-  stations: ResolvedStation[],
-): { station: ResolvedStation; canonical: boolean } | null {
+  stations: Candidate[],
+): { station: Candidate; canonical: boolean } | null {
   const bySlug = stations.find((s) => s.slug === segment);
   if (bySlug) return { station: bySlug, canonical: true };
 
@@ -57,7 +57,7 @@ function parseTime(raw: string | undefined): Date | null {
 }
 
 /** Parses `/tide/<slug>[/<iso-instant>]`. */
-export function parseUrl(pathname: string, stations: ResolvedStation[]): ParsedUrl | null {
+export function parseUrl(pathname: string, stations: Candidate[]): ParsedUrl | null {
   const match = /^\/tide\/([^/]+)(?:\/(.+))?$/.exec(pathname);
   if (!match) return null;
   const [, segment, rawTime] = match;
@@ -71,7 +71,7 @@ export function parseUrl(pathname: string, stations: ResolvedStation[]): ParsedU
  * Derived from Intl rather than hardcoded — a literal "-07:00" is right for
  * PDT and wrong for the five months a year the Pacific coast runs PST.
  */
-function offsetFor(station: ResolvedStation, t: Date): string {
+function offsetFor(station: Candidate, t: Date): string {
   const tzName =
     new Intl.DateTimeFormat("en-US", {
       timeZone: station.timezone,
@@ -85,7 +85,7 @@ function offsetFor(station: ResolvedStation, t: Date): string {
   return `${sign}${hh.padStart(2, "0")}:${mm.padStart(2, "0")}`;
 }
 
-function localParts(station: ResolvedStation, t: Date) {
+function localParts(station: Candidate, t: Date) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: station.timezone,
     year: "numeric",
@@ -100,7 +100,7 @@ function localParts(station: ResolvedStation, t: Date) {
 }
 
 /** Builds `/tide/<slug>[/<iso-instant>]`, writing the time in the station's own offset. */
-export function buildUrl(station: ResolvedStation, t: Date | null): string {
+export function buildUrl(station: Candidate, t: Date | null): string {
   const base = `/tide/${station.slug}`;
   if (!t) return base;
   const { year, month, day, hour, minute } = localParts(station, t);

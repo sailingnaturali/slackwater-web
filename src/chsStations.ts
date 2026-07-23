@@ -1,4 +1,5 @@
 import registry from "@sailingnaturali/station-corrections/data/registry.json" with { type: "json" };
+import type { Station } from "./tides";
 
 export interface ChsStation {
   kind: "chs";
@@ -28,6 +29,10 @@ type RegistryEntry = {
   kind?: "tide" | "current";
   aliases?: string[];
 };
+
+/** A bundled NOAA station has no `kind`; only CHS ports carry the discriminant. */
+export const isChs = (s: Station | ChsStation): s is ChsStation =>
+  "kind" in s && s.kind === "chs";
 
 const entries = registry as unknown as Record<string, RegistryEntry>;
 

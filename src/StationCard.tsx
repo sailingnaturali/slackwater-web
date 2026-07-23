@@ -1,4 +1,5 @@
-import type { ResolvedStation, TideState } from "./tides";
+import type { TideState } from "./tides";
+import type { Candidate } from "./place";
 import { distanceUnit, formatDistance, formatHeight, heightUnit, type Units } from "./units";
 
 // en-US, not the app's usual en-CA: the card wants "1:42 PM", and en-CA's
@@ -32,9 +33,10 @@ export function StationCard({
   onSelect,
   onToggleStar,
 }: {
-  station: ResolvedStation;
+  station: Candidate;
   km?: number;
-  state: TideState;
+  /** Absent for a CHS port shown before its online reading has loaded — the card then shows identity only. */
+  state?: TideState;
   units: Units;
   selected?: boolean;
   starred?: boolean;
@@ -57,22 +59,24 @@ export function StationCard({
           )}
         </p>
         {station.context && <p className="station-card-context">{station.context}</p>}
-        {state.next && (
+        {state?.next && (
           <p className="station-card-next">
             {state.next.high ? "High" : "Low"} {formatHeight(state.next.level, units)}{" "}
             {heightUnit(units)} · {cardTime(state.next.time, station.timezone)}
           </p>
         )}
       </div>
-      <div className="station-card-reading">
-        <span className="station-card-value">
-          {formatHeight(state.level, units)}
-          <abbr>{heightUnit(units)}</abbr>
-        </span>
-        <span className={state.rising ? "dir rising" : "dir falling"}>
-          {state.rising ? "▲" : "▼"}
-        </span>
-      </div>
+      {state && (
+        <div className="station-card-reading">
+          <span className="station-card-value">
+            {formatHeight(state.level, units)}
+            <abbr>{heightUnit(units)}</abbr>
+          </span>
+          <span className={state.rising ? "dir rising" : "dir falling"}>
+            {state.rising ? "▲" : "▼"}
+          </span>
+        </div>
+      )}
     </button>
   );
 

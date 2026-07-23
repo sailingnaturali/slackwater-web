@@ -1,6 +1,18 @@
 import gazetteerData from "@sailingnaturali/station-corrections/data/gazetteer.json";
 import { resolvedStations, distanceKm, type ResolvedStation } from "./tides";
+import { chsStations, type ChsStation } from "./chsStations";
 import { getPlaceStation } from "./savedStations";
+
+/**
+ * Both bundled NOAA and online CHS ports are candidates for "which station is
+ * nearest". The search only ever reads identity (position, slug, name), never
+ * constituents, so a CHS port — which has no harmonics — belongs in the pool.
+ * Without it, Victoria snaps across Haro Strait to a NOAA station (spec §7).
+ */
+export type Candidate = ResolvedStation | ChsStation;
+
+/** The whole pool the app can name — bundled NOAA plus online CHS ports. */
+export const candidates: Candidate[] = [...resolvedStations, ...chsStations];
 
 export interface Place {
   name: string;
@@ -34,8 +46,8 @@ export function nearestPlace(position: { latitude: number; longitude: number }):
 }
 
 /** Stations nearest a place, nearest first. */
-export function stationsNear(place: Place, limit: number): ResolvedStation[] {
-  return resolvedStations
+export function stationsNear(place: Place, limit: number): Candidate[] {
+  return candidates
     .map((station) => ({ station, distanceKm: distanceKm(place, station) }))
     .sort((a, b) => a.distanceKm - b.distanceKm)
     .slice(0, limit)
@@ -44,9 +56,9 @@ export function stationsNear(place: Place, limit: number): ResolvedStation[] {
 
 export interface PositionMatch {
   place: Place;
-  station: ResolvedStation;
+  station: Candidate;
   /** Nearest-first; always includes `station`, so the chooser needs no second lookup. */
-  alternatives: ResolvedStation[];
+  alternatives: Candidate[];
   /** True when `station` came from a saved place -> station choice, not the automatic nearest. */
   overridden: boolean;
 }
@@ -66,7 +78,7 @@ export function matchForPosition(
   const overrideStation =
     overrideSlug != null
       ? (alternatives.find((s) => s.slug === overrideSlug) ??
-        resolvedStations.find((s) => s.slug === overrideSlug))
+        candidates.find((s) => s.slug === overrideSlug))
       : undefined;
 
   if (overrideStation) {

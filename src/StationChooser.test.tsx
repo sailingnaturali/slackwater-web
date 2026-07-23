@@ -5,6 +5,7 @@ import { StationChooser } from "./StationChooser";
 import { getPlaceStation } from "./savedStations";
 import type { Place } from "./place";
 import type { ResolvedStation } from "./tides";
+import type { Candidate } from "./place";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -45,7 +46,7 @@ let root: Root | null = null;
 function mount(props: {
   current: ResolvedStation;
   alternatives: ResolvedStation[];
-  onChoose?: (station: ResolvedStation) => void;
+  onChoose?: (station: Candidate) => void;
 }) {
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -125,7 +126,7 @@ describe("StationChooser", () => {
   });
 
   it("passes the chosen station to onChoose", () => {
-    let picked: ResolvedStation | null = null;
+    let picked: Candidate | null = null;
     mount({
       current: kanaka,
       alternatives: [kanaka, hanbury, fridayHarbor],

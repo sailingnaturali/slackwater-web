@@ -1,5 +1,13 @@
 import { useMemo, useState } from "react";
-import { dayEvents, type DayEvent, type DayEventKind, type Station } from "./tides";
+import {
+  dayEvents,
+  dayEventsFromState,
+  type DayEvent,
+  type DayEventKind,
+  type Station,
+  type TideState,
+} from "./tides";
+import { isChs, type ChsStation } from "./chsStations";
 import { formatHeight, heightUnit, type Units } from "./units";
 
 const DAY = 86_400_000;
@@ -32,15 +40,24 @@ export function EventList({
   station,
   now,
   units,
+  state,
 }: {
-  station: Station;
+  // Full station for the bundled path (paging recomputes from constituents);
+  // a CHS port carries no harmonics, so its `state` is passed in and the day's
+  // turns are read off that instead.
+  station: Station | ChsStation;
   now: Date;
   units: Units;
+  /** Present only for a CHS port — the day's turns come from here, not `predictRange`. */
+  state?: TideState;
 }) {
   const [dayOffset, setDayOffset] = useState(0);
 
   const day = useMemo(() => new Date(now.getTime() + dayOffset * DAY), [now, dayOffset]);
-  const events = useMemo(() => dayEvents(station, day), [station, day]);
+  const events = useMemo(() => {
+    if (isChs(station)) return state ? dayEventsFromState(state, station, day) : [];
+    return dayEvents(station, day);
+  }, [station, day, state]);
   const nearest = useMemo(() => nearestEvent(events, now), [events, now]);
 
   const dayLabel = day.toLocaleDateString("en-CA", {

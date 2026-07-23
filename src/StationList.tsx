@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { distanceKm, predict, type Match, type ResolvedStation } from "./tides";
+import { isChs, type ChsStation } from "./chsStations";
 import type { Units } from "./units";
 import type { NearbyStation } from "./nearby";
 import { StationCard } from "./StationCard";
@@ -7,7 +8,8 @@ import { LocationCard } from "./LocationCard";
 import { RECENT_LIMIT, STARRED_LIMIT, NEARBY_ALL_LIMIT } from "./savedStations";
 
 export interface LocatedStation {
-  station: ResolvedStation;
+  /** Union: the located station can be a CHS port (e.g. Victoria). */
+  station: ResolvedStation | ChsStation;
   match: Match;
 }
 
@@ -57,8 +59,8 @@ export function StationList({
   selectedId: string;
   units: Units;
   now: Date;
-  onSelect: (station: ResolvedStation) => void;
-  onToggleStar?: (station: ResolvedStation) => void;
+  onSelect: (station: ResolvedStation | ChsStation) => void;
+  onToggleStar?: (station: ResolvedStation | ChsStation) => void;
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
@@ -110,7 +112,9 @@ export function StationList({
         <LocationCard
           match={located?.match ?? null}
           station={located?.station ?? null}
-          state={located ? predict(located.station, now) : null}
+          // A CHS port has no synchronous prediction — the card renders on
+          // identity, and its reading loads in the detail view.
+          state={located && !isChs(located.station) ? predict(located.station, now) : null}
           units={units}
           selected={located?.station.id === selectedId}
           starred={located ? starredIds.has(located.station.id) : false}
