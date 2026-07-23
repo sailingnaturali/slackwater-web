@@ -885,7 +885,12 @@ footer .warn { color: var(--ink-soft); }
   opacity: 0.85;
 }
 .offline-status:hover { opacity: 1; }
-.offline-icon { color: #7bd88f; }
+.offline-status-icon { font-size: 0.9rem; }
+.offline-status-text { font-size: 0.8rem; white-space: nowrap; }
+.offline-status.muted { opacity: 0.7; }
+.offline-status.ok .offline-status-icon { color: #7bd88f; }
+.offline-status.warn .offline-status-icon,
+.offline-status.warn .offline-status-text { color: #e06a5b; }
 .offline-meter {
   position: relative;
   display: inline-block;
