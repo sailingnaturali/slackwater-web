@@ -13,10 +13,17 @@ before the discovery map (`2026-07-23-discovery-map-design.md`).
 
 `scripts/build-currents.mjs`, sibling to `build-stations.mjs`:
 
-- Source is the `currents.json` **shipped inside** `@sailingnaturali/current-stations`
-  (new devDependency) — no network at build time, same posture as `@neaps/tide-database`.
+- *(Amended 2026-07-23.)* The npm tarball deliberately excludes the full bundle
+  (`current-stations` RELEASING.md), and its station records carried no positions.
+  So: **positions land upstream first** (`current-stations` v0.2.0 adds
+  latitude/longitude from the NOAA station list), and the web repo **vendors a
+  Salish Sea extract** (`data/noaa-currents.json`, committed, via
+  `npx current-stations extract --box`) — the same vendoring pattern
+  `slackwater-engine` uses. Still no network at build time; re-vendoring is a
+  by-hand refresh, like the golden fixtures.
 - Filters, all load-bearing:
-  - Salish Sea bbox (reuse the same `[-125.5, 47.0, -122.0, 50.5]`).
+  - Salish Sea bbox (reuse the same `[-125.5, 47.0, -122.0, 50.5]`; applied at
+    extract time, asserted by test at build time).
   - **Harmonic stations only.** Subordinate stations are offsets from a reference and
     need the engine's reduction math; deferred (`ponytail:` ceiling comment in the
     script names the upgrade path).
@@ -49,13 +56,17 @@ emit the same `CurrentState` the CHS path produces so downstream components don'
 
 ## 3. Identity: station-corrections, as always
 
-NOAA current stations get registry entries in `@sailingnaturali/station-corrections` —
-that package is the workspace's source of truth for station identity, and the web's
-slugs/aliases/gazetteer already flow from it. Cross-repo change, sequenced first:
-registry entries land and publish, then this app bumps the dependency.
+*(Amended 2026-07-23.)* `createBundledResolver()` already falls back to
+cleaned-name identity (slug, context, aliases) for any station without a registry
+entry — that is how most bundled NOAA *tide* stations resolve today. So registry
+entries are **naming-quality curation, not a blocker**: current stations resolve
+through the same resolver on day one, and corrections land upstream in
+`@sailingnaturali/station-corrections` when a name deserves better.
 
-Registry `station:` key carries the NOAA id (`noaa/PUG1741`-style), `kind: current`.
-Naming follows the registry's existing membership rules.
+One rule the resolver can't provide: a current station named after the same water
+as a tide station (Friday Harbor has both) must not shadow the tide slug already
+in shared links — the app appends `-current` as a deterministic tiebreak, and a
+test asserts global slug uniqueness across everything the app can name.
 
 ## 4. UI: no new views
 
