@@ -13,6 +13,12 @@ export async function loadChsTide(
 ): Promise<{ state: TideState | null; status: ChsStatus }> {
   try {
     const state = await chsTideDay(station, day, { cache, fetchFn, stationList });
+    // A valid 200 with no samples (station carries the series but returned an
+    // empty window) adapts to a degenerate state — flat line at level 0. That's
+    // a lie, not a reading: treat it as honestly degraded, same as offline.
+    if (state.timeline.length === 0 || state.extremes.length === 0) {
+      return { state: null, status: "offline" };
+    }
     return { state, status: "ready" };
   } catch {
     // Fetch failed and the adapter could not serve from cache — the honest offline state.

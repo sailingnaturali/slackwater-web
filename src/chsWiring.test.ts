@@ -21,4 +21,14 @@ describe("CHS ports join the nearest-station pool", () => {
     const place = matchForPosition(VICTORIA)!.place;
     expect(stationsNear(place, 1)[0].slug).toBe("chs-victoria");
   });
+
+  it("does not hijack a US position — Seattle resolves to a NOAA station", () => {
+    // The converse invariant: adding CHS ports to the pool must not steal US
+    // resolutions. A Seattle-area position must land on a bundled NOAA station,
+    // never a `chs-` slug.
+    const SEATTLE = { latitude: 47.6, longitude: -122.33 };
+    const slug = matchForPosition(SEATTLE)?.station.slug;
+    expect(slug).toBeDefined();
+    expect(slug!.startsWith("chs-")).toBe(false);
+  });
 });

@@ -8,7 +8,6 @@ import {
   resolvedStations,
   stations,
   type Match,
-  type ResolvedStation,
   type Station,
 } from "./tides";
 import { TideChart } from "./TideChart";
@@ -23,6 +22,7 @@ import { usePreferences } from "./usePreferences";
 import { stationsNear, candidates, type Candidate } from "./place";
 import { isChs, type ChsStation } from "./chsStations";
 import { useChsTide } from "./useChsTide";
+import { withNow } from "./chs/tide";
 import { useLocation } from "./useLocation";
 import { formatHeight, heightUnit, formatDistance, distanceUnit } from "./units";
 import { parseUrl, buildUrl } from "./url";
@@ -169,7 +169,15 @@ export function App() {
     () => (isChs(station) ? null : predict(station, now)),
     [station, now],
   );
-  const state = chsStation ? chs.state : noaaState;
+  // The hook's `state` carries the fetched day's extremes/timeline (day-based,
+  // correct) but its now-relative fields (level/rising/next) are frozen at fetch
+  // time. Re-anchor them to the ticking `now` so the CHS hero tracks the clock
+  // like NOAA — without this, `next` counts into a negative "in -1h" once passed.
+  const chsState = useMemo(
+    () => (chs.state ? withNow(chs.state, now) : null),
+    [chs.state, now],
+  );
+  const state = chsStation ? chsState : noaaState;
   // NOAA is always "ready" (synchronous); CHS carries loading/offline through.
   const status = chsStation ? chs.status : "ready";
 
@@ -200,13 +208,16 @@ export function App() {
 
   // Saved state stores slugs, not stations — looked up here so a renamed or
   // removed station can never leave a stale object sitting in the list.
-  const bySlug = (slug: string) => resolvedStations.find((s) => s.slug === slug);
+  // Resolve against the full pool (NOAA + CHS), not resolvedStations alone —
+  // otherwise a starred/visited CHS port (e.g. chs-victoria) is filtered out of
+  // Starred/Recent and its star never fills.
+  const bySlug = (slug: string) => candidates.find((s) => s.slug === slug);
   const starredStations = useMemo(
-    () => saved.starred.map(bySlug).filter((s): s is ResolvedStation => s != null),
+    () => saved.starred.map(bySlug).filter((s): s is Candidate => s != null),
     [saved.starred],
   );
   const recentStations = useMemo(
-    () => saved.recent.map(bySlug).filter((s): s is ResolvedStation => s != null),
+    () => saved.recent.map(bySlug).filter((s): s is Candidate => s != null),
     [saved.recent],
   );
 
@@ -286,7 +297,7 @@ export function App() {
           located={located}
           starred={starredStations}
           recent={recentStations}
-          nearby={origin ? nearestStations(origin, resolvedStations, NEARBY_ALL_LIMIT) : []}
+          nearby={origin ? nearestStations(origin, candidates, NEARBY_ALL_LIMIT) : []}
           origin={origin}
           selectedId={station.id}
           units={units}

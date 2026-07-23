@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { toTideState, chsTideDay, TIMELINE_STEP_MINUTES } from "./tide";
+import { toTideState, chsTideDay, withNow, TIMELINE_STEP_MINUTES } from "./tide";
 import { memoryCache, dayKey } from "./cache";
 import { localDay } from "../tides";
 import hilo from "./fixtures/victoria-wlp-hilo.json";
@@ -44,6 +44,45 @@ function fetchFixtures(): typeof fetch {
     return new Response(JSON.stringify(windowed), { status: 200 });
   }) as unknown as typeof fetch;
 }
+
+/** Like `fetchFixtures`, but also answers `GET /stations` with the fixture list,
+ *  so resolution actually runs through `fetchStationList` when no list is injected. */
+function fetchAll(): typeof fetch {
+  return vi.fn(async (url: string) => {
+    if (url.endsWith("/stations")) return new Response(JSON.stringify(stationList), { status: 200 });
+    const body = (url.includes("wlp-hilo") ? hilo : curve) as IwlsSample[];
+    const params = new URL(url).searchParams;
+    const from = new Date(params.get("from")!).getTime();
+    const to = new Date(params.get("to")!).getTime();
+    const windowed = body.filter((s) => {
+      const t = new Date(s.eventDate).getTime();
+      return t >= from && t <= to;
+    });
+    return new Response(JSON.stringify(windowed), { status: 200 });
+  }) as unknown as typeof fetch;
+}
+
+describe("withNow", () => {
+  const early = new Date("2026-07-21T06:00:00Z");
+  const state = toTideState(hilo as IwlsSample[], curve as IwlsSample[], early);
+
+  it("advances `next` to the following extreme past a later `now`, with no negative countdown", () => {
+    expect(state.next).not.toBeNull();
+    // A tick just past the current next — where a frozen state would report a
+    // negative "in -Xm" countdown against this same next.
+    const past = new Date(state.next!.time.getTime() + 60_000);
+    const rolled = withNow(state, past);
+
+    expect(rolled.next).not.toBeNull();
+    expect(rolled.next!.time.getTime()).toBeGreaterThan(past.getTime());
+    expect(rolled.next!.time.getTime()).toBeGreaterThan(state.next!.time.getTime());
+    // rising tracks the *new* next — proves level/rising/next moved together.
+    expect(rolled.rising).toBe(rolled.next!.high);
+    // Day-based fields are reused untouched (same reference), never refetched.
+    expect(rolled.extremes).toBe(state.extremes);
+    expect(rolled.timeline).toBe(state.timeline);
+  });
+});
 
 describe("toTideState", () => {
   const now = new Date("2026-07-21T06:00:00Z");
@@ -105,6 +144,26 @@ it("chsTideDay resolves, fetches once, and caches the day", async () => {
 
   await chsTideDay(station, now, { cache, fetchFn, stationList: stationList as IwlsStationMeta[] });
   expect((fetchFn as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(callsAfterFirst);
+});
+
+it("caches the resolved station id — a second load never re-fetches the station list (bug 3)", async () => {
+  const fetchFn = fetchAll();
+  const cache = memoryCache();
+  const station = victoriaStation();
+  const now = new Date("2026-07-21T00:00:00Z");
+
+  const calls = fetchFn as unknown as { mock: { calls: unknown[][] } };
+  const stationListCalls = () =>
+    calls.mock.calls.filter((c) => String(c[0]).endsWith("/stations")).length;
+
+  // No injected stationList, so resolution genuinely runs fetchStationList once.
+  await chsTideDay(station, now, { cache, fetchFn });
+  expect(stationListCalls()).toBe(1);
+
+  // Second load of the same station: the resolved id is cached, so the whole
+  // registry is not fetched again (and an offline reload would resolve too).
+  await chsTideDay(station, now, { cache, fetchFn });
+  expect(stationListCalls()).toBe(1);
 });
 
 it("bucketing is by station-local day, not UTC (bug 1)", async () => {

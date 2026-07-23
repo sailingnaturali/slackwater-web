@@ -45,12 +45,17 @@ function downsample(curve: IwlsSample[], stepMin: number): { time: Date; level: 
   return out;
 }
 
-/** Adapt one CHS tide day into the shape `predict()` returns, so downstream code is provenance-blind. */
-export function toTideState(hilo: IwlsSample[], curve: IwlsSample[], now: Date): TideState {
-  const extremes = classifyExtremes(hilo);
-  const timeline = downsample(curve, TIMELINE_STEP_MINUTES);
+/**
+ * The three now-relative fields (`level`, `rising`, `next`) computed against
+ * `now` from the day-based `timeline`/`extremes`. Shared so `withNow` recomputes
+ * them exactly the way `toTideState` first derived them.
+ */
+function nowFields(
+  timeline: { time: Date; level: number }[],
+  extremes: Extreme[],
+  now: Date,
+): Pick<TideState, "level" | "rising" | "next"> {
   const nowMs = now.getTime();
-
   // level at now: nearest timeline sample (10-minute spacing; nearest is within 5 min)
   let level = timeline[0]?.level ?? 0;
   let bestDt = Infinity;
@@ -63,7 +68,25 @@ export function toTideState(hilo: IwlsSample[], curve: IwlsSample[], now: Date):
   }
   const next = extremes.find((e) => e.time.getTime() > nowMs) ?? null;
   const rising = next ? next.high : false;
-  return { level, rising, next, extremes, timeline };
+  return { level, rising, next };
+}
+
+/** Adapt one CHS tide day into the shape `predict()` returns, so downstream code is provenance-blind. */
+export function toTideState(hilo: IwlsSample[], curve: IwlsSample[], now: Date): TideState {
+  const extremes = classifyExtremes(hilo);
+  const timeline = downsample(curve, TIMELINE_STEP_MINUTES);
+  return { ...nowFields(timeline, extremes, now), extremes, timeline };
+}
+
+/**
+ * Re-anchor a fetched day's `TideState` to a ticking `now` without refetching.
+ * The day's `extremes`/`timeline` are fixed once fetched, but `level`/`rising`/
+ * `next` are now-relative — recompute only those so the CHS hero tracks the
+ * clock like NOAA's `predict()` does, instead of freezing (and counting the
+ * `next` countdown into negatives) at fetch time.
+ */
+export function withNow(state: TideState, now: Date): TideState {
+  return { ...state, ...nowFields(state.timeline, state.extremes, now) };
 }
 
 const DAY_MS = 86_400_000;
@@ -91,8 +114,10 @@ const inRange = (start: Date, end: Date) => (s: IwlsSample) => {
 /**
  * Cache-check every station-local day the window touches; on any miss, fetch
  * the whole window in a single request (padded to the IWLS 7-day-per-request
- * cap, spec §7b) and bucket the result by local day so a week of subsequent
- * browsing costs no further requests.
+ * cap, spec §7b) and bucket the result by local day. Subsequent browsing of
+ * days already in the fetched window costs no further requests; a day outside
+ * it still triggers one fetch (which caches its own week forward). The resolved
+ * station id is cached separately (see `chsTideDay`), so it isn't re-fetched here.
  */
 async function seriesForWindow(
   stationId: string,
@@ -150,8 +175,17 @@ export async function chsTideDay(
   now: Date,
   deps: { cache: ChsCache; fetchFn?: typeof fetch; stationList?: IwlsStationMeta[] },
 ): Promise<TideState> {
-  const list = deps.stationList ?? (await fetchStationList(deps.fetchFn));
-  const id = resolveStationId(station, list, "wlp");
+  // The registry→IWLS id join is stable, so cache it under a station-scoped key
+  // (distinct from the `stationId|series|day` data keys, and never evicted since
+  // it has no day component). On a hit, repeat/offline loads of an already-seen
+  // station resolve without touching the network at all.
+  const resolveKey = `resolve|${station.id}`;
+  let id = (await deps.cache.get(resolveKey)) as string | null;
+  if (!id) {
+    const list = deps.stationList ?? (await fetchStationList(deps.fetchFn));
+    id = resolveStationId(station, list, "wlp");
+    await deps.cache.set(resolveKey, id);
+  }
 
   const start = new Date(now.getTime() - 18 * HOUR_MS);
   const end = new Date(now.getTime() + 30 * HOUR_MS);
