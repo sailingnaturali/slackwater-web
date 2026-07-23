@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { detectBrowserHelp, type BrowserHelp } from "./browserHelp";
 
 export type GateResult =
   | { kind: "located"; latitude: number; longitude: number }
@@ -17,6 +18,10 @@ export type GateResult =
  */
 export function LocationGate({ onResolve }: { onResolve: (result: GateResult) => void }) {
   const [asking, setAsking] = useState(false);
+  // Set only when the ask was actively *blocked* (PERMISSION_DENIED). A timeout
+  // or position-unavailable is not a settings problem — those still fall to the
+  // station list, so we don't hand out unblock instructions that wouldn't help.
+  const [blocked, setBlocked] = useState<BrowserHelp | null>(null);
 
   function ask() {
     if (!navigator.geolocation) {
@@ -24,6 +29,7 @@ export function LocationGate({ onResolve }: { onResolve: (result: GateResult) =>
       return;
     }
     setAsking(true);
+    setBlocked(null);
     navigator.geolocation.getCurrentPosition(
       (position) =>
         onResolve({
@@ -31,8 +37,44 @@ export function LocationGate({ onResolve }: { onResolve: (result: GateResult) =>
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         }),
-      () => onResolve({ kind: "declined" }),
+      (error) => {
+        setAsking(false);
+        if (error.code === error.PERMISSION_DENIED) {
+          setBlocked(detectBrowserHelp(navigator.userAgent, navigator.maxTouchPoints));
+        } else {
+          onResolve({ kind: "declined" });
+        }
+      },
       { timeout: 10_000, maximumAge: 300_000 },
+    );
+  }
+
+  if (blocked) {
+    return (
+      <div className="gate">
+        <div className="gate-inner rise">
+          <p className="eyebrow">Location blocked</p>
+          <hr className="rule" />
+          <h1>Turn location back on for this site.</h1>
+          <p className="gate-body">
+            Your browser is set to block this site's location, so it won't ask again until
+            you change it. In {blocked.name}:
+          </p>
+          <ol className="gate-steps">
+            {blocked.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          <div className="gate-actions">
+            <button className="primary" onClick={ask} disabled={asking}>
+              {asking ? "Finding you…" : "Try again"}
+            </button>
+            <button className="ghost" onClick={() => onResolve({ kind: "declined" })}>
+              Choose a station instead
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 

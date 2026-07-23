@@ -173,6 +173,17 @@ abbr { text-decoration: none; font-size: 0.46em; margin-left: 0.18em; color: var
   text-wrap: pretty;
 }
 
+/* Unblock instructions: same voice as .gate-body, numbered so the order reads. */
+.gate-steps {
+  color: rgba(252, 252, 252, 0.85);
+  margin: 0 0 2rem;
+  max-width: 30rem;
+  padding-left: 1.4rem;
+  display: grid;
+  gap: 0.6rem;
+  text-wrap: pretty;
+}
+
 .gate-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
 
 button.primary,
