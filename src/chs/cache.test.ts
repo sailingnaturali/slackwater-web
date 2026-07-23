@@ -23,4 +23,11 @@ describe("memoryCache", () => {
     expect(await c.get(dayKey("abc", "wlp", "2026-07-10"))).toBeNull();
     expect(await c.get(dayKey("abc", "wlp", "2026-07-21"))).toBe("keep");
   });
+
+  it("keeps the cutoff day itself — eviction is strictly before, not on", async () => {
+    const c = memoryCache();
+    await c.set(dayKey("abc", "wlp", "2026-07-15"), "cutoff-day");
+    await c.evictBefore("2026-07-15");
+    expect(await c.get(dayKey("abc", "wlp", "2026-07-15"))).toBe("cutoff-day");
+  });
 });

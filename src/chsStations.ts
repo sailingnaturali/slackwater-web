@@ -24,7 +24,9 @@ const TIMEZONE = "America/Vancouver";
 type RegistryEntry = {
   name: string;
   context: string;
-  position: [number, number];
+  // number[] not [number, number]: JSON imports infer a plain array, and the
+  // tuple type forced an `as unknown as` double-cast. We only read [0]/[1].
+  position: number[];
   provider: string;
   kind?: "tide" | "current";
   aliases?: string[];
@@ -34,7 +36,7 @@ type RegistryEntry = {
 export const isChs = (s: Station | ChsStation): s is ChsStation =>
   "kind" in s && s.kind === "chs";
 
-const entries = registry as unknown as Record<string, RegistryEntry>;
+const entries = registry as Record<string, RegistryEntry>;
 
 export const chsStations: ChsStation[] = Object.entries(entries)
   .filter(([, e]) => e.provider === "chs" && e.kind === "tide")
