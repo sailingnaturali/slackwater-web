@@ -130,4 +130,23 @@ describe("StationCard — currents", () => {
     expect(derived).not.toContain("2.1");
     expect(derived).not.toContain("station-card-value");
   });
+
+  it("a gate with a companion tide keeps the current as the only reading, tide as a next-line", () => {
+    const html = renderToStaticMarkup(
+      <StationCard
+        station={gate}
+        state={state}
+        current={flooding}
+        units="imperial"
+        onSelect={() => {}}
+      />,
+    );
+    // Tide merges as text — the next high/low line, not a second big number.
+    expect(html).toContain("High");
+    expect(html).toContain("8.0");
+    // Current is the reading; the big tide level is suppressed, so there is
+    // exactly one reading block (two would be the layout regression this fixes).
+    expect(html).toContain("2.1"); // current speed
+    expect((html.match(/station-card-reading/g) ?? []).length).toBe(1);
+  });
 });

@@ -94,7 +94,11 @@ export function StationCard({
           </p>
         )}
       </div>
-      {state && (
+      {/* A gate's reading is its current — the tide rides along as the "High/Low
+          · time" next-line above, not a second display-size number fighting the
+          current for the same card. So the big tide level shows only for a pure
+          tide station (no current); a gate with a companion tide skips it. */}
+      {state && !current && (
         <div className="station-card-reading">
           <span className="station-card-value">
             {formatHeight(state.level, units)}
