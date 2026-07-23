@@ -271,7 +271,7 @@ async function main() {
       // the network and is genuinely denied — Chrome logs that resource
       // failure as a console.error itself, same false-positive class as the
       // deliberate proof-fetch above. Expected here; a real app error is not.
-      if (msg.type() === "error" && !/Failed to load resource/.test(msg.text())) {
+      if (msg.type() === "error" && !/Failed to load resource:.*ERR_INTERNET_DISCONNECTED/.test(msg.text())) {
         chsErrors.push(`console.error: ${msg.text()}`);
       }
     });
