@@ -37,7 +37,9 @@ export function resolveStationId(
         `(nearest ${best.officialName} at ${bestKm.toFixed(1)} km) — refusing to bind`,
     );
   }
-  if (best.officialName.toLowerCase() !== target.name.toLowerCase()) {
+  const a = target.name.toLowerCase();
+  const b = best.officialName.toLowerCase();
+  if (!(a.includes(b) || b.includes(a))) {
     console.warn(
       `CHS resolve: "${target.name}" matched "${best.officialName}" by position (${bestKm.toFixed(2)} km)`,
     );

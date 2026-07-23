@@ -28,13 +28,23 @@ describe("resolveStationId", () => {
     ).toThrow(/tolerance/i);
   });
 
-  it("warns but still resolves on a name mismatch (position wins)", () => {
+  it("a shortened name that is a substring does not warn", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const id = resolveStationId(
       { latitude: 48.424, longitude: -123.371, name: "Victoria" }, stations, "wlp",
     );
     expect(id).toBe("5cebf1df3d0f4a073c4bbd1e");
-    expect(warn).toHaveBeenCalled(); // registry "Victoria" ≠ IWLS "Victoria Harbour"
+    expect(warn).not.toHaveBeenCalled(); // "Victoria" is a deliberate shortening of "Victoria Harbour"
+    warn.mockRestore();
+  });
+
+  it("a genuinely unrelated name warns but still resolves by position", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const id = resolveStationId(
+      { latitude: 48.424, longitude: -123.371, name: "Sidney" }, stations, "wlp",
+    );
+    expect(id).toBe("5cebf1df3d0f4a073c4bbd1e"); // position wins
+    expect(warn).toHaveBeenCalled(); // "Sidney" is unrelated to "Victoria Harbour"
     warn.mockRestore();
   });
 });
