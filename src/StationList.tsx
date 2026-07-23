@@ -50,20 +50,21 @@ function GroupCard({
   const chsCur = useChsCurrent(gate, now);
   const current = chsCur.state ? withNowCurrent(chsCur.state, now) : undefined;
 
-  // The gate's companion tide (Malibu Rapids → Point Atkinson). Cache-first and
-  // a no-op for a gate with no pairing (companionOf → null → the hook idles).
-  const companion = gate ? companionOf(gate) : null;
-  const chsTide = useChsTide(companion, now);
-  const companionTide = chsTide.state ? withNow(chsTide.state, now) : undefined;
+  // Tide reading. A gate borrows its companion tide port (Malibu Rapids → Point
+  // Atkinson); a standalone CHS tide port (e.g. Victoria as the current location)
+  // loads its OWN tide; a bundled NOAA station needs neither (predict is
+  // synchronous below). Cache-first, and a no-op when there's nothing to load.
+  const tidePort = gate ? companionOf(gate) : isChs(station) ? station : null;
+  const chsTide = useChsTide(tidePort, now);
+  const tide = chsTide.state ? withNow(chsTide.state, now) : undefined;
 
   return (
     <StationCard
       station={station}
       km={km ?? undefined}
-      // A bundled tide station predicts offline; a CHS tide port renders on
-      // identity (undefined); a current gate carries its companion tide beside
-      // the current (or undefined when it has no paired tide port).
-      state={gate ? companionTide : isChs(station) ? undefined : predict(station, now)}
+      // A CHS station (gate's companion, or a tide port's own) shows its loaded
+      // tide; a bundled NOAA station predicts synchronously.
+      state={isChs(station) ? tide : predict(station, now)}
       current={current}
       units={units}
       speedUnit={speedUnit}
