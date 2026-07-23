@@ -778,3 +778,20 @@ footer .warn { color: var(--ink-soft); }
 @media (prefers-reduced-motion: reduce) {
   *, .rise { animation: none !important; transition: none !important; opacity: 1 !important; }
 }
+
+/* Update toast: a new build is precached and waiting; offered, never forced. */
+.update-toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  font-size: 0.9375rem;
+}

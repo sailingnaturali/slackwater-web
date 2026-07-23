@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { UpdateToast } from "./UpdateToast";
 import "./styles.css";
 
 // public/404.html (GitHub Pages has no server-side rewrites) bounces a
@@ -15,5 +16,6 @@ if (redirect) {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
+    <UpdateToast />
   </StrictMode>,
 );
