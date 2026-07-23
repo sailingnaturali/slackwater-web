@@ -13,12 +13,14 @@ function view(over: Partial<OfflineSyncView>): OfflineSyncView {
 }
 
 describe("OfflineStatus", () => {
-  it("shows the download progress on a first sync with no coverage yet", () => {
+  it("shows just the bar and the ↓ icon while downloading — no visible words", () => {
     const html = renderToStaticMarkup(
       <OfflineStatus view={view({ ready: 1, total: 4, active: true, syncedThrough: null })} onOpen={() => {}} />,
     );
-    expect(html).toContain("Downloading 25%");
-    expect(html).toContain("offline-meter");
+    expect(html).toContain("offline-meter"); // the progress bar
+    expect(html).toContain("↓"); // download icon, pinned right
+    expect(html).not.toContain("offline-status-text"); // no jumpy "Downloading 25%" label
+    expect(html).toContain("Downloading 25%"); // still in the aria-label for screen readers
   });
 
   it("names how long offline data is good for once covered", () => {
@@ -56,8 +58,17 @@ describe("OfflineStatus", () => {
       />,
     );
     expect(html).toContain("2 failed");
-    expect(html).toContain("offline-status warn");
-    expect(html).toContain("offline-meter warn");
+    expect(html).toContain("offline-status warn"); // red tone on the icon + text
+  });
+
+  it("shows a red bar while a sync is still running but hitting failures", () => {
+    const html = renderToStaticMarkup(
+      <OfflineStatus
+        view={view({ ready: 3, total: 5, failed: 2, active: true, online: true, syncedThrough: null })}
+        onOpen={() => {}}
+      />,
+    );
+    expect(html).toContain("offline-meter warn"); // red progress bar
   });
 
   it("says waiting for signal when offline with nothing cached", () => {
