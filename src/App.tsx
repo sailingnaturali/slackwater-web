@@ -21,7 +21,7 @@ import { Settings } from "./Settings";
 import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
 import { stationsNear, candidates, locateStation, type Candidate } from "./place";
-import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
+import { isChs, isChsCurrent, companionOf, type ChsStation } from "./chsStations";
 import { useChsTide } from "./useChsTide";
 import { useChsCurrent } from "./useChsCurrent";
 import { withNow } from "./chs/tide";
@@ -190,7 +190,15 @@ export function App() {
   // from the online adapter via `useChsTide`. The hook is called every render
   // (rules of hooks) but handed `null` — and left idle — while a NOAA station
   // is in view. Once a `TideState` exists, everything below is provenance-blind.
-  const chsStation = isChs(station) && !isChsCurrent(station) ? station : null;
+  // A third arm alongside the tide one: a current gate has no level, only a
+  // signed velocity. Hoisted above the tide hook so a gate's companion tide
+  // port (companionOf) can ride the otherwise-idle useChsTide call below.
+  const currentGate = isChsCurrent(station) ? station : null;
+  const companion = currentGate ? companionOf(currentGate) : null;
+  // Two engines, one shape (see useChsTide): a bundled station predicts
+  // synchronously; a CHS port fetches. When a gate is viewed this hook — which
+  // would otherwise sit idle — fetches the gate's companion tide port instead.
+  const chsStation = isChs(station) && !isChsCurrent(station) ? station : companion;
   const chs = useChsTide(chsStation, now);
   const noaaState = useMemo(
     () => (isChs(station) ? null : predict(station, now)),
@@ -208,10 +216,8 @@ export function App() {
   // NOAA is always "ready" (synchronous); CHS carries loading/offline through.
   const status = chsStation ? chs.status : "ready";
 
-  // A third arm alongside the tide one above: a current gate has no level,
-  // only a signed velocity. Same rules-of-hooks discipline — called every
-  // render, idle (`null`) unless the viewed station is a gate.
-  const currentGate = isChsCurrent(station) ? station : null;
+  // Same rules-of-hooks discipline — called every render, idle (`null`)
+  // unless the viewed station is a gate.
   const chsCur = useChsCurrent(currentGate, now);
   const currentState = useMemo(
     () => (chsCur.state ? withNowCurrent(chsCur.state, now) : null),
@@ -537,6 +543,20 @@ export function App() {
                   </p>
                 )}
               </section>
+
+              {companion && tideView && (
+                <section className="panel chart-panel">
+                  <p className="eyebrow">Tide at {companion.name}</p>
+                  <TideChart
+                    station={companion}
+                    state={tideView.state}
+                    now={tideView.now}
+                    units={units}
+                    onScrub={scrub}
+                  />
+                </section>
+              )}
+
               <EventList
                 station={station}
                 now={curView.now}
@@ -586,11 +606,20 @@ export function App() {
             </p>
           ) : isChs(station) ? (
             <p className="muted">
-              {isChsCurrent(station) ? "Current" : "Tide"} data for {resolved.name} is served
-              live from the <a href="https://tides.gc.ca/">Canadian Hydrographic Service</a>{" "}
+              {isChsCurrent(station)
+                ? companion
+                  ? `Current data for ${resolved.name} and tide data for ${companion.name} are`
+                  : `Current data for ${resolved.name} is`
+                : `Tide data for ${resolved.name} is`}{" "}
+              served live from the <a href="https://tides.gc.ca/">Canadian Hydrographic Service</a>{" "}
               (CHS) under licence —{" "}
-              {isChsCurrent(station) ? "speeds and times" : "heights and times"} as published by
-              CHS, not computed on your device. Not to be used for navigation (CHS clause 10).
+              {isChsCurrent(station)
+                ? companion
+                  ? "speeds, heights and times"
+                  : "speeds and times"
+                : "heights and times"}{" "}
+              as published by CHS, not computed on your device. Not to be used for navigation (CHS
+              clause 10).
             </p>
           ) : (
             <p className="muted">
