@@ -233,6 +233,30 @@ it("a single day's slice is never enough to find `next` (bug 2, regression)", as
   expect(state.rising).toBe(true);
 });
 
+it("spans the whole local day however late `now` is (chart domain, mirrors predict)", async () => {
+  // TideChart's horizontal domain is the day's own timeline points, and this
+  // adapter clips them to [now-window, ...]. With now-18h, a late-evening now
+  // crosses into the day and drops the morning, so the plotted curve rescales
+  // as the readout line is scrubbed late — the same artifact predict() had.
+  const station = victoriaStation();
+  const tz = station.timezone;
+  const daySpanHours = async (now: Date) => {
+    const state = await chsTideDay(station, now, {
+      cache: memoryCache(),
+      fetchFn: fetchFixtures(),
+      stationList: stationList as IwlsStationMeta[],
+    });
+    const pts = state.timeline.filter((p) => localDay(p.time, tz) === localDay(now, tz));
+    return (pts[pts.length - 1].time.getTime() - pts[0].time.getTime()) / 3_600_000;
+  };
+  // Same local day (PDT July 19, a full day in the fixture), morning vs night.
+  const morning = new Date("2026-07-19T09:00:00Z"); // 02:00 local
+  const night = new Date("2026-07-20T06:00:00Z"); // 23:00 local, same day
+  expect(localDay(morning, tz)).toBe(localDay(night, tz));
+  expect(await daySpanHours(morning)).toBeGreaterThan(23);
+  expect(await daySpanHours(night)).toBeGreaterThan(23);
+});
+
 it("never caches a fetch-boundary day that the fetch only partially covers (bug 3)", async () => {
   const fetchFn = fetchFixtures();
   const cache = memoryCache();

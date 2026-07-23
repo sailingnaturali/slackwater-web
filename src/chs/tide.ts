@@ -91,9 +91,11 @@ export function withNow(state: TideState, now: Date): TideState {
  * Resolve a registry station to its IWLS id, fetch/cache the tide data around
  * `now`, and adapt it to a `TideState`.
  *
- * Mirrors `predict()`'s own window exactly (now-18h to now+30h) so `next`/
- * `rising` never run out of extremes near the end of a local day the way a
- * single day's slice would.
+ * Mirrors `predict()`'s own window exactly (now-30h to now+30h) so `next`/
+ * `rising` never run out of extremes near the end of a local day, and the
+ * chart always spans the whole local day: 18h of history was too little, so
+ * past ~18:00 local now-18h crossed into the day and clipped the morning off
+ * the plotted curve as the readout line was scrubbed late.
  */
 export async function chsTideDay(
   station: ChsStation,
@@ -102,7 +104,7 @@ export async function chsTideDay(
 ): Promise<TideState> {
   const id = await resolveCachedId(station, "wlp", deps);
 
-  const start = new Date(now.getTime() - 18 * HOUR_MS);
+  const start = new Date(now.getTime() - 30 * HOUR_MS);
   const end = new Date(now.getTime() + 30 * HOUR_MS);
   const days = localDaysInWindow(start, end, station.timezone);
 
