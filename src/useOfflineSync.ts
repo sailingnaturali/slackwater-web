@@ -34,7 +34,9 @@ function isOnline(): boolean {
   return typeof navigator === "undefined" ? true : navigator.onLine;
 }
 
-export function useOfflineSync(): OfflineSyncView {
+export function useOfflineSync(
+  origin: { latitude: number; longitude: number } | null,
+): OfflineSyncView {
   const snapshot = useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot);
 
   useEffect(() => {
@@ -50,6 +52,13 @@ export function useOfflineSync(): OfflineSyncView {
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
   }, []);
+
+  // Once location is known (and whenever it changes), re-order the remaining
+  // pending downloads closest-first. Geolocation resolves after mount, so the
+  // sync may begin in registry order for a station or two before this lands.
+  useEffect(() => {
+    if (origin) store.prioritize(origin);
+  }, [origin?.latitude, origin?.longitude]);
 
   const online = isOnline();
   const complete = snapshot.total > 0 && snapshot.ready === snapshot.total;

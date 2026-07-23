@@ -1,4 +1,5 @@
 import { candidates } from "./place";
+import { distanceKm } from "./tides";
 import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
 import { chsTideDay } from "./chs/tide";
 import { chsCurrentDay } from "./chs/current";
@@ -17,10 +18,11 @@ export interface SyncSnapshot {
 }
 export type Loader = (station: ChsStation, now: Date) => Promise<unknown>;
 
-// 3 days, not 7: IWLS caps at 30 requests/minute, and a full cold prefetch is
-// many requests per station × ~30 stations. A shorter horizon keeps that cold
-// sync to a few minutes; the sliding window tops up the next day on each launch.
-export const HORIZON_DAYS = 3;
+// 7 days of offline runway. The IWLS 30/min cap means a full cold prefetch of
+// ~30 stations takes several minutes — that's acceptable (it's background, the
+// user stays online for it), and stations sync closest-first (see prioritize)
+// so the ones they'll actually use are ready long before the far ones.
+export const HORIZON_DAYS = 7;
 const STEP_DAYS = 2;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -45,6 +47,7 @@ export interface OfflineSync {
   snapshot(): SyncSnapshot;
   subscribe(fn: () => void): () => void;
   start(): Promise<void>;
+  prioritize(origin: { latitude: number; longitude: number }): void;
   pauseAll(): void;
   resumeAll(): Promise<void>;
   pause(id: string): void;
@@ -131,6 +134,14 @@ export function createOfflineSync(
       return () => listeners.delete(fn);
     },
     start: () => pump(),
+    prioritize(origin) {
+      // Closest-first: the worker always takes the first `pending` job, so
+      // ordering the list by distance means the stations the user is near — the
+      // ones they'll actually open — download before the far-flung ones. Safe
+      // mid-sync: re-sorting only changes which pending job is picked next.
+      jobs.sort((a, b) => distanceKm(origin, a.station) - distanceKm(origin, b.station));
+      emit();
+    },
     pauseAll() {
       paused = true;
       emit();

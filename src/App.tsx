@@ -125,7 +125,7 @@ export function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [offlineOpen, setOfflineOpen] = useState(false);
-  const offline = useOfflineSync();
+  const offline = useOfflineSync(origin);
   const { units, setUnits, speedUnit, setSpeedUnit } = usePreferences();
 
   // The readout is a clock, not a snapshot - but only while nothing has

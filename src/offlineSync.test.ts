@@ -14,12 +14,28 @@ const anchor0 = new Date("2026-07-23T12:00:00Z");
 const stations = [fixture("chs-a", "tide"), fixture("chs-b", "current")];
 
 describe("horizonAnchors", () => {
-  it("steps every 2 days across the horizon (3 days → 2 anchors at 0,2)", () => {
+  it("steps every 2 days across the horizon (7 days → 4 anchors at 0,2,4,6)", () => {
     const a = horizonAnchors(anchor0);
-    expect(a).toHaveLength(2);
+    expect(a).toHaveLength(4);
     const dayMs = 24 * 60 * 60 * 1000;
-    expect(a.map((d) => (d.getTime() - anchor0.getTime()) / dayMs)).toEqual([0, 2]);
-    expect(HORIZON_DAYS).toBe(3);
+    expect(a.map((d) => (d.getTime() - anchor0.getTime()) / dayMs)).toEqual([0, 2, 4, 6]);
+    expect(HORIZON_DAYS).toBe(7);
+  });
+});
+
+describe("prioritize", () => {
+  it("orders jobs closest-first by distance to origin", () => {
+    const at = (id: string, latitude: number, longitude: number) => ({
+      ...fixture(id, "tide"),
+      latitude,
+      longitude,
+    });
+    const sync = createOfflineSync({
+      load: okLoad,
+      stations: [at("far", 60, -140), at("near", 48.5, -123.3), at("mid", 49.5, -124)],
+    });
+    sync.prioritize({ latitude: 48.5, longitude: -123.3 });
+    expect(sync.snapshot().jobs.map((j) => j.station.id)).toEqual(["near", "mid", "far"]);
   });
 });
 
@@ -117,8 +133,8 @@ describe("createOfflineSync", () => {
     fail = false;
     calls = 0;
     await sync.restartAll();
-    // Only chs-a (failed) re-runs: 1 station × 2 horizon anchors = 2. chs-b (ready) is left alone.
-    expect(calls).toBe(2);
+    // Only chs-a (failed) re-runs: 1 station × 4 horizon anchors = 4. chs-b (ready) is left alone.
+    expect(calls).toBe(4);
     expect(sync.snapshot().ready).toBe(2);
   });
 
@@ -131,7 +147,7 @@ describe("createOfflineSync", () => {
     await sync.start();
     reran = 0;
     await sync.resetAll();
-    // 2 stations × 2 horizon anchors = 4 loader calls on a full re-queue.
-    expect(reran).toBe(4);
+    // 2 stations × 4 horizon anchors = 8 loader calls on a full re-queue.
+    expect(reran).toBe(8);
   });
 });
