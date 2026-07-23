@@ -385,14 +385,26 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .event-rows { list-style: none; margin: 0; padding: 0; }
 
 .event {
+  border-top: 1px solid var(--hairline);
+}
+.event:first-child { border-top: none; }
+/* The whole row is the click target — clicking it moves the scrub instant onto
+   this turn, the reverse of dragging the chart's readout line. */
+.event-row {
+  width: 100%;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 0.9rem;
   padding: 0.8rem 0.7rem;
-  border-top: 1px solid var(--hairline);
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.event:first-child { border-top: none; }
+.event-row:hover { background: var(--hairline); }
 .event.past {
   /* Dimmed, not hidden: "when was low this morning" is a real question, and a
      past turn still tells you which way the water has been going. */

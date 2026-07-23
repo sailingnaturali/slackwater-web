@@ -21,7 +21,10 @@ afterEach(() => {
   container = null;
 });
 
-function render(now: Date, spies: { onPageDay?: (d: number) => void; onToday?: () => void }) {
+function render(
+  now: Date,
+  spies: { onPageDay?: (d: number) => void; onToday?: () => void; onScrub?: (t: Date) => void },
+) {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -34,6 +37,7 @@ function render(now: Date, spies: { onPageDay?: (d: number) => void; onToday?: (
         units="imperial"
         onPageDay={spies.onPageDay ?? (() => {})}
         onToday={spies.onToday ?? (() => {})}
+        onScrub={spies.onScrub ?? (() => {})}
       />,
     );
   });
@@ -68,5 +72,15 @@ describe("EventList day paging drives the shared instant", () => {
     render(new Date(today.getTime() + 86_400_000), { onToday: () => reset++ });
     click("Today");
     expect(reset).toBe(1);
+  });
+
+  it("clicking a row moves the shared instant onto that event's time", () => {
+    const scrubbed: Date[] = [];
+    render(today, { onScrub: (t) => scrubbed.push(t) });
+    const row = container!.querySelector<HTMLButtonElement>(".event-row")!;
+    const stamp = row.querySelector("time")!.getAttribute("datetime")!;
+    act(() => row.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(scrubbed).toHaveLength(1);
+    expect(scrubbed[0].toISOString()).toBe(stamp);
   });
 });

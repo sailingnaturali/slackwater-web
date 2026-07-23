@@ -540,6 +540,7 @@ export function App() {
                 speedUnit={speedUnit}
                 onPageDay={pageDay}
                 onToday={backToToday}
+                onScrub={scrub}
               />
             </>
           )
@@ -560,6 +561,7 @@ export function App() {
                 state={isChs(station) ? tideView.state : undefined}
                 onPageDay={pageDay}
                 onToday={backToToday}
+                onScrub={scrub}
               />
             )}
           </>

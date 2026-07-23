@@ -57,6 +57,7 @@ export function EventList({
   speedUnit,
   onPageDay,
   onToday,
+  onScrub,
 }: {
   // Full station for the bundled path (paging recomputes from constituents);
   // a CHS port carries no harmonics, so its `state` is passed in and the day's
@@ -78,6 +79,8 @@ export function EventList({
   onPageDay: (delta: number) => void;
   /** Snap the shared instant back to the live clock. */
   onToday: () => void;
+  /** Move the shared scrub instant to an event's time (clicking a row). */
+  onScrub: (t: Date) => void;
 }) {
   const day = now;
   const offset = dayDiff(now, today, station.timezone);
@@ -127,30 +130,32 @@ export function EventList({
           if (event === nearest) classes.push("nearest");
           return (
             <li key={event.time.toISOString() + event.kind} className={classes.join(" ")}>
-              <span className={`pill ${pill.className}`}>{pill.label}</span>
-              <time dateTime={event.time.toISOString()}>
-                {event.time.toLocaleTimeString("en-CA", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: false,
-                  timeZone: station.timezone,
-                })}
-              </time>
-              <span className="height">
-                {event.level != null ? (
-                  <>
-                    {formatHeight(event.level, units)}
-                    <abbr>{heightUnit(units)}</abbr>
-                  </>
-                ) : event.speed != null ? (
-                  <>
-                    {formatSpeed(event.speed, speedUnit ?? "kn")}
-                    <abbr>{speedUnitLabel(speedUnit ?? "kn")}</abbr>
-                  </>
-                ) : (
-                  <span aria-hidden="true">—</span>
-                )}
-              </span>
+              <button type="button" className="event-row" onClick={() => onScrub(event.time)}>
+                <span className={`pill ${pill.className}`}>{pill.label}</span>
+                <time dateTime={event.time.toISOString()}>
+                  {event.time.toLocaleTimeString("en-CA", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                    timeZone: station.timezone,
+                  })}
+                </time>
+                <span className="height">
+                  {event.level != null ? (
+                    <>
+                      {formatHeight(event.level, units)}
+                      <abbr>{heightUnit(units)}</abbr>
+                    </>
+                  ) : event.speed != null ? (
+                    <>
+                      {formatSpeed(event.speed, speedUnit ?? "kn")}
+                      <abbr>{speedUnitLabel(speedUnit ?? "kn")}</abbr>
+                    </>
+                  ) : (
+                    <span aria-hidden="true">—</span>
+                  )}
+                </span>
+              </button>
             </li>
           );
         })}
