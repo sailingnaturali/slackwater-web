@@ -307,6 +307,29 @@ async function main() {
     }
     await chsPage.close();
 
+    // Task 11: current gates (Active Pass etc.) are identity-only too — no
+    // constituents shipped, same offline contract as a CHS tide port. Same
+    // pattern as the chsPage block above: fresh tab, same cut network.
+    const gateErrors = [];
+    const gatePage = await browser.newPage();
+    gatePage.on("pageerror", (err) => gateErrors.push(`pageerror: ${err.message}`));
+    gatePage.on("console", (msg) => {
+      if (msg.type() === "error" && !/Failed to load resource:.*ERR_INTERNET_DISCONNECTED/.test(msg.text())) {
+        gateErrors.push(`console.error: ${msg.text()}`);
+      }
+    });
+    const gateCdp = await gatePage.createCDPSession();
+    await gateCdp.send("Network.enable");
+    await gateCdp.send("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    await gatePage.goto(`${URL}tide/chs-active-pass`, { waitUntil: "domcontentloaded" });
+    await gatePage.waitForSelector(".place h1", { timeout: 10_000 });
+    const gateName = await gatePage.$eval(".place h1", (el) => el.textContent);
+    if (gateName !== "Active Pass") throw new Error(`CHS gate offline: expected Active Pass, got ${JSON.stringify(gateName)}`);
+    await gatePage.waitForSelector(".reading.chs-signal", { timeout: 10_000 });
+    if ((await gatePage.$$(".chart")).length !== 0) throw new Error("CHS gate offline: a chart rendered with no data — expected none");
+    if (gateErrors.length) throw new Error(`CHS gate offline page reported errors:\n${gateErrors.join("\n")}`);
+    await gatePage.close();
+
     // Regression guard: the CHS route above must not have broken NOAA's
     // offline render (e.g. a shared code path throwing). Fresh tab, same cut
     // network, a plain NOAA station.
@@ -353,6 +376,7 @@ async function main() {
         `offline reload (network proved "${networkState}") rendered "${offlineStationName}" ` +
         `at "${offlineHeight}" with ${offlineEventCount} events and all 41 stations counted, ` +
         `CHS offline degraded gracefully at "${chsStationName}", ` +
+        `CHS gate offline degraded gracefully at "${gateName}" with no chart, ` +
         `NOAA offline regression check rendered "${noaaStationName}" at "${noaaHeight}"`,
     );
   } finally {

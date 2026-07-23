@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
+import { chsCurrentStations } from "./chsStations";
 
 describe("no CHS data is bundled", () => {
   it("src/data holds no CHS-provider records", () => {
@@ -15,6 +16,16 @@ describe("no CHS data is bundled", () => {
     const { chsStations } = await import("./chsStations");
     for (const s of chsStations) {
       expect(s).not.toHaveProperty("constituents");
+    }
+  });
+});
+
+describe("current gates are identity only", () => {
+  it("carry no constituents, no predictions, no provider id", () => {
+    for (const g of chsCurrentStations) {
+      expect(g).not.toHaveProperty("constituents");
+      expect(g).not.toHaveProperty("floodDirection"); // that comes from IWLS at runtime, never bundled
+      expect(g.provider).toBe("chs");
     }
   });
 });
