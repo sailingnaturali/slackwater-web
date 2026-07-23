@@ -9,6 +9,7 @@ describe("chsStations", () => {
     expect(victoria!.latitude).toBeCloseTo(48.42, 1);
     // Identity only — no constituents, no datum. Numbers come from IWLS at runtime.
     expect(victoria as unknown as { constituents?: unknown }).not.toHaveProperty("constituents");
+    expect(victoria!.timezone).toBe("America/Vancouver");
   });
 
   it("includes only CHS tide ports, not the current gates", () => {

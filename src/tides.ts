@@ -169,7 +169,7 @@ export function extremesOn(state: TideState, day: Date, timezone: string): Extre
   return state.extremes.filter((extreme) => localDay(extreme.time, timezone) === target);
 }
 
-function localDay(date: Date, timezone: string): string {
+export function localDay(date: Date, timezone: string): string {
   return date.toLocaleDateString("en-CA", { timeZone: timezone });
 }
 

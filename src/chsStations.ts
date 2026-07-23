@@ -11,7 +11,14 @@ export interface ChsStation {
   latitude: number;
   longitude: number;
   aliases: string[];
+  timezone: string;
 }
+
+// ponytail: every CHS tide port in the registry is Salish Sea / Inside Passage / BC
+// reference ports (the membership rules scope the whole registry to Pacific waters),
+// so a constant is correct here. Add a real per-station timezone field only if the
+// registry ever expands past the Pacific.
+const TIMEZONE = "America/Vancouver";
 
 type RegistryEntry = {
   name: string;
@@ -36,4 +43,5 @@ export const chsStations: ChsStation[] = Object.entries(entries)
     latitude: e.position[0],
     longitude: e.position[1],
     aliases: e.aliases ?? [],
+    timezone: TIMEZONE,
   }));
