@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import type { Units } from "./units";
+import type { SpeedUnit, Units } from "./units";
+import { speedUnitLabel } from "./units";
 
 /**
  * The settings sheet — units, set once and rarely revisited.
@@ -8,20 +9,23 @@ import type { Units } from "./units";
  * focus trapping, Escape-to-close and the backdrop for free, and getting
  * those right by hand is how modals become inaccessible.
  *
- * TIDE HEIGHT plus the CHS licence consent. The prototype also has CURRENT
- * SPEED and a boat-relative SLACK LIMIT, but this client ships tide stations
- * only — there is no current to show a speed for or a slack window to size,
- * so those wait until currents arrive.
+ * TIDE HEIGHT, CURRENT SPEED, plus the CHS licence consent. CURRENT SPEED
+ * ships now; SLACK LIMIT does not — it is the paid iOS tier's boat-relative
+ * feature (spec §5b), sold rather than missing.
  */
 export function Settings({
   open,
   units,
   onUnitsChange,
+  speedUnit = "kn",
+  onSpeedUnitChange = () => {},
   onClose,
 }: {
   open: boolean;
   units: Units;
   onUnitsChange: (units: Units) => void;
+  speedUnit?: SpeedUnit;
+  onSpeedUnitChange?: (unit: SpeedUnit) => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -61,6 +65,23 @@ export function Settings({
           >
             Meters
           </button>
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <p className="eyebrow">Current speed</p>
+        <div className="segmented" role="radiogroup" aria-label="Current speed units">
+          {(["kn", "kmh", "ms"] as const).map((u) => (
+            <button
+              key={u}
+              role="radio"
+              aria-checked={speedUnit === u}
+              className={speedUnit === u ? "seg current" : "seg"}
+              onClick={() => onSpeedUnitChange(u)}
+            >
+              {speedUnitLabel(u)}
+            </button>
+          ))}
         </div>
       </section>
 

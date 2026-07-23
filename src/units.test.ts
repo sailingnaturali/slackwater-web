@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { formatHeight, formatDistance, toFeet, toNauticalMiles } from "./units";
+import { formatSpeed, speedUnitLabel, toKmh, toMs } from "./units";
 
 describe("units", () => {
   it("converts metres to feet", () => {
@@ -27,5 +28,22 @@ describe("units", () => {
   it("never renders negative zero", () => {
     // A tide just below datum formats as -0.0 without this guard.
     expect(formatHeight(-0.001, "imperial")).toBe("0.0");
+  });
+});
+
+describe("speed units", () => {
+  it("converts knots to km/h and m/s", () => {
+    expect(toKmh(1)).toBeCloseTo(1.852, 3);
+    expect(toMs(1)).toBeCloseTo(0.514444, 5);
+  });
+  it("formats speed to one decimal in the chosen unit", () => {
+    expect(formatSpeed(3.1, "kn")).toBe("3.1");
+    expect(formatSpeed(3.1, "kmh")).toBe("5.7");
+    expect(formatSpeed(3.1, "ms")).toBe("1.6");
+  });
+  it("labels each speed unit for display", () => {
+    expect(speedUnitLabel("kn")).toBe("kn");
+    expect(speedUnitLabel("kmh")).toBe("km/h");
+    expect(speedUnitLabel("ms")).toBe("m/s");
   });
 });
