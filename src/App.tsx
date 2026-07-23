@@ -173,7 +173,7 @@ export function App() {
   // from the online adapter via `useChsTide`. The hook is called every render
   // (rules of hooks) but handed `null` — and left idle — while a NOAA station
   // is in view. Once a `TideState` exists, everything below is provenance-blind.
-  const chsStation = isChs(station) ? station : null;
+  const chsStation = isChs(station) && !isChsCurrent(station) ? station : null;
   const chs = useChsTide(chsStation, now);
   const noaaState = useMemo(
     () => (isChs(station) ? null : predict(station, now)),
