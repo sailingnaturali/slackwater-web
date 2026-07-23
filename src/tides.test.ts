@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stations, predict, extremesOn, matchStation, distanceKm } from "./tides";
+import { stations, predict, extremesOn, matchStation, distanceKm, localDay } from "./tides";
 
 const fridayHarbor = stations.find((s) => /friday harbor/i.test(s.name))!;
 const noon = new Date("2026-07-20T19:00:00Z");
@@ -71,6 +71,26 @@ describe("predict", () => {
       if (later.high) expect(later.level).toBeGreaterThan(earlier.level);
       else expect(later.level).toBeLessThan(earlier.level);
     }
+  });
+
+  it("spans the whole local day however late 'now' is", () => {
+    // The chart's horizontal domain is the day's own timeline points. Anchoring
+    // the window at now-18h clipped the morning once now passed ~18:00 local, so
+    // the plotted curve rescaled (03:42→24:00 instead of 00:00→24:00) as you
+    // scrubbed the readout line late. The day must stay whole regardless of now.
+    const tz = fridayHarbor.timezone;
+    const daySpanHours = (now: Date) => {
+      const pts = predict(fridayHarbor, now).timeline.filter(
+        (p) => localDay(p.time, tz) === localDay(now, tz),
+      );
+      return (pts[pts.length - 1].time.getTime() - pts[0].time.getTime()) / 3_600_000;
+    };
+    // Same local day (America/Vancouver, PDT = UTC-7 in July), morning vs night.
+    const morning = new Date("2026-07-22T09:00:00Z"); // 02:00 local
+    const night = new Date("2026-07-23T06:00:00Z"); // 23:00 local, same day
+    expect(localDay(morning, tz)).toBe(localDay(night, tz));
+    expect(daySpanHours(morning)).toBeGreaterThan(23);
+    expect(daySpanHours(night)).toBeGreaterThan(23);
   });
 });
 

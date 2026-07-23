@@ -88,9 +88,12 @@ function predictorFor(station: Station) {
 export function predict(station: Station, now: Date): TideState {
   const predictor = predictorFor(station);
 
-  // A day either side of the target so the chart has context and "next" always
-  // exists, even just before midnight.
-  const start = new Date(now.getTime() - 18 * HOUR);
+  // A full day either side of the target so the chart always spans the whole
+  // local day (its horizontal domain is these points) and "next" always exists.
+  // 18h of history was too little: past ~18:00 local, now-18h crossed into the
+  // day and clipped the morning off, rescaling the plotted curve as the readout
+  // line was scrubbed late. now-30h keeps today's midnight always in range.
+  const start = new Date(now.getTime() - 30 * HOUR);
   const end = new Date(now.getTime() + 30 * HOUR);
 
   const extremes: Extreme[] = predictor
