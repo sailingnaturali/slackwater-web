@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { localDay } from "./tides";
 import type { ChsStation } from "./chsStations";
 import { chsCurrentDay, type CurrentState } from "./chs/current";
 import { type ChsCache, indexedDbCache } from "./chs/cache";
@@ -32,7 +33,11 @@ export function useChsCurrent(station: ChsStation | null, now: Date): { state: C
   const [result, setResult] = useState<{ state: CurrentState | null; status: ChsStatus }>(
     { state: null, status: "loading" },
   );
-  const dayKey = now.toISOString().slice(0, 10);
+  // Key on the STATION-LOCAL day, not UTC — else scrubbing a slack past 17:00
+  // local (a UTC-7 station) flips the UTC day mid-chart, re-running the effect,
+  // refetching a now-anchored window and rescaling the scrubber's domain. Same
+  // fix as the tide hook. ponytail: reuses `localDay`.
+  const dayKey = station ? localDay(now, station.timezone) : "";
 
   useEffect(() => {
     if (!station) return;
@@ -40,7 +45,7 @@ export function useChsCurrent(station: ChsStation | null, now: Date): { state: C
     setResult({ state: null, status: "loading" });
     loadChsCurrent(station, now, browserCache).then((r) => { if (live) setResult(r); });
     return () => { live = false; };
-    // day identity via ISO day, not the ticking Date — refetch on station or day change only.
+    // day identity via the station-local day, not the ticking Date.
   }, [station?.id, dayKey]);
 
   return result;

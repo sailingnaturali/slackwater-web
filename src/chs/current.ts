@@ -209,7 +209,7 @@ export async function chsCurrentDay(
       { id: station.id, latitude: reference.latitude, longitude: reference.longitude, name: reference.name },
       "wlp-hilo", deps,
     );
-    const start = new Date(now.getTime() - 18 * HOUR_MS);
+    const start = new Date(now.getTime() - 30 * HOUR_MS);
     const end = new Date(now.getTime() + 30 * HOUR_MS);
     const days = localDaysInWindow(start, end, station.timezone);
     const hilo = await seriesForWindow(id, "wlp-hilo", days, station.timezone, start, end, deps.cache, deps.fetchFn);
@@ -227,7 +227,7 @@ export async function chsCurrentDay(
     await deps.cache.set(metaKey, axis);
   }
 
-  const start = new Date(now.getTime() - 18 * HOUR_MS);
+  const start = new Date(now.getTime() - 30 * HOUR_MS);
   const end = new Date(now.getTime() + 30 * HOUR_MS);
   const days = localDaysInWindow(start, end, station.timezone);
   const [events, speeds, dirs] = await Promise.all([
