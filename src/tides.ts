@@ -5,6 +5,7 @@ import { createTidePredictor } from "@neaps/tide-predictor";
 import { createBundledResolver } from "@sailingnaturali/station-corrections";
 import { getTimes as getSunTimes } from "suncalc";
 import type { ChsStation } from "./chsStations";
+import type { CurrentState } from "./chs/current"; // type-only: no runtime cycle
 import stationData from "./data/stations.json";
 
 export interface Station {
@@ -174,14 +175,16 @@ export function localDay(date: Date, timezone: string): string {
   return date.toLocaleDateString("en-CA", { timeZone: timezone });
 }
 
-export type DayEventKind = "high" | "low" | "sunrise" | "sunset";
+export type DayEventKind = "high" | "low" | "sunrise" | "sunset" | "slack" | "max-flood" | "max-ebb";
 
-/** One row of the schedule table — a tide turn or a sun event, same shape. */
+/** One row of the schedule table — a tide/current turn or a sun event, same shape. */
 export interface DayEvent {
   time: Date;
   kind: DayEventKind;
   /** Height above chart datum. Present for tide turns only. */
   level?: number;
+  /** Speed in knots. Present for current events only. */
+  speed?: number;
 }
 
 /**
@@ -200,7 +203,7 @@ export interface DayEvent {
  * (48-49°N) so this never fires today, but a null is dropped rather than
  * rendered as a row.
  */
-function sunEvents(
+export function sunEventsFor(
   station: { latitude: number; longitude: number; timezone: string },
   day: Date,
 ): DayEvent[] {
@@ -231,7 +234,7 @@ export function dayEvents(station: Station, day: Date): DayEvent[] {
     kind: extreme.high ? "high" : "low",
     level: extreme.level,
   }));
-  return [...tides, ...sunEvents(station, day)].sort(
+  return [...tides, ...sunEventsFor(station, day)].sort(
     (a, b) => a.time.getTime() - b.time.getTime(),
   );
 }
@@ -256,7 +259,26 @@ export function dayEventsFromState(
     kind: extreme.high ? "high" : "low",
     level: extreme.level,
   }));
-  return [...tides, ...sunEvents(station, day)].sort(
+  return [...tides, ...sunEventsFor(station, day)].sort(
+    (a, b) => a.time.getTime() - b.time.getTime(),
+  );
+}
+
+/**
+ * A current gate's day: its slack/max-flood/max-ebb events interleaved with
+ * sunrise/sunset, mirroring `dayEventsFromState` for tides. Current-only on
+ * web (spec §5c) — no paired tide row.
+ */
+export function currentDayEventsFromState(
+  state: CurrentState,
+  station: { latitude: number; longitude: number; timezone: string },
+  day: Date,
+): DayEvent[] {
+  const target = localDay(day, station.timezone);
+  const currents: DayEvent[] = state.events
+    .filter((e) => localDay(e.time, station.timezone) === target)
+    .map((e) => ({ time: e.time, kind: e.kind, speed: e.speed }));
+  return [...currents, ...sunEventsFor(station, day)].sort(
     (a, b) => a.time.getTime() - b.time.getTime(),
   );
 }

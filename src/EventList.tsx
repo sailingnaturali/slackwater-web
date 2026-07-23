@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  currentDayEventsFromState,
   dayEvents,
   dayEventsFromState,
   type DayEvent,
@@ -7,8 +8,9 @@ import {
   type Station,
   type TideState,
 } from "./tides";
-import { isChs, type ChsStation } from "./chsStations";
-import { formatHeight, heightUnit, type Units } from "./units";
+import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
+import type { CurrentState } from "./chs/current";
+import { formatHeight, formatSpeed, heightUnit, speedUnitLabel, type SpeedUnit, type Units } from "./units";
 
 const DAY = 86_400_000;
 
@@ -17,6 +19,9 @@ const PILLS: Record<DayEventKind, { label: string; className: string }> = {
   low: { label: "↓ Low", className: "low" },
   sunrise: { label: "✳ Rise", className: "sun" },
   sunset: { label: "☾ Set", className: "sun" },
+  slack: { label: "● Slack", className: "slack" },
+  "max-flood": { label: "▲ Flood", className: "flood" },
+  "max-ebb": { label: "▼ Ebb", className: "ebb" },
 };
 
 /** The event whose time sits closest to `t` — the row the scrub line is on. */
@@ -41,6 +46,8 @@ export function EventList({
   now,
   units,
   state,
+  currentState,
+  speedUnit,
 }: {
   // Full station for the bundled path (paging recomputes from constituents);
   // a CHS port carries no harmonics, so its `state` is passed in and the day's
@@ -50,14 +57,18 @@ export function EventList({
   units: Units;
   /** Present only for a CHS port — the day's turns come from here, not `predictRange`. */
   state?: TideState;
+  /** Present only for a CHS current gate — the day's slacks/peaks come from here. */
+  currentState?: CurrentState;
+  speedUnit?: SpeedUnit;
 }) {
   const [dayOffset, setDayOffset] = useState(0);
 
   const day = useMemo(() => new Date(now.getTime() + dayOffset * DAY), [now, dayOffset]);
   const events = useMemo(() => {
+    if (isChsCurrent(station)) return currentState ? currentDayEventsFromState(currentState, station, day) : [];
     if (isChs(station)) return state ? dayEventsFromState(state, station, day) : [];
     return dayEvents(station, day);
-  }, [station, day, state]);
+  }, [station, day, state, currentState]);
   const nearest = useMemo(() => nearestEvent(events, now), [events, now]);
 
   const dayLabel = day.toLocaleDateString("en-CA", {
@@ -117,6 +128,11 @@ export function EventList({
                   <>
                     {formatHeight(event.level, units)}
                     <abbr>{heightUnit(units)}</abbr>
+                  </>
+                ) : event.speed != null ? (
+                  <>
+                    {formatSpeed(event.speed, speedUnit ?? "kn")}
+                    <abbr>{speedUnitLabel(speedUnit ?? "kn")}</abbr>
                   </>
                 ) : (
                   <span aria-hidden="true">—</span>

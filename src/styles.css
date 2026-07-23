@@ -420,6 +420,9 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .event .pill.high { background: var(--rising); }
 .event .pill.low { background: var(--falling); }
 .event .pill.sun { background: var(--warn); }
+.event .pill.flood { background: var(--rising); }
+.event .pill.ebb { background: var(--falling); }
+.event .pill.slack { background: var(--ink); }
 .event time,
 .event .height {
   font-family: var(--font-mono);
