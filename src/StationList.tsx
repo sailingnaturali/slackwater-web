@@ -30,9 +30,7 @@ function GroupCard({
   speedUnit,
   now,
   selected,
-  starred,
   onSelect,
-  onToggleStar,
 }: {
   station: Candidate;
   km: number | null;
@@ -40,9 +38,7 @@ function GroupCard({
   speedUnit: SpeedUnit;
   now: Date;
   selected: boolean;
-  starred: boolean;
   onSelect: () => void;
-  onToggleStar?: () => void;
 }) {
   // Cache-first (IndexedDB): free for a gate whose day is already cached, one
   // fetch on first sight. `null` for any non-current station → the hook no-ops.
@@ -69,9 +65,7 @@ function GroupCard({
       units={units}
       speedUnit={speedUnit}
       selected={selected}
-      starred={starred}
       onSelect={onSelect}
-      onToggleStar={onToggleStar}
     />
   );
 }
@@ -128,7 +122,6 @@ export function StationList({
   speedUnit = "kn",
   now,
   onSelect,
-  onToggleStar,
   onRequestLocation,
 }: {
   located: LocatedStation | null;
@@ -141,7 +134,6 @@ export function StationList({
   speedUnit?: SpeedUnit;
   now: Date;
   onSelect: (station: ResolvedStation | ChsStation) => void;
-  onToggleStar?: (station: ResolvedStation | ChsStation) => void;
   onRequestLocation?: () => void;
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -150,8 +142,6 @@ export function StationList({
   // the located station takes precedence, then starred, then recent.
   const used = new Set<string>();
   if (located) used.add(located.station.id);
-
-  const starredIds = new Set(starred.map((s) => s.id));
 
   const starredEntries = withDistance(starred, origin).filter((e) => !used.has(e.station.id));
   for (const e of starredEntries) used.add(e.station.id);
@@ -202,9 +192,7 @@ export function StationList({
             speedUnit={speedUnit}
             now={now}
             selected={located.station.id === selectedId}
-            starred={starredIds.has(located.station.id)}
             onSelect={() => onSelect(located.station)}
-            onToggleStar={onToggleStar ? () => onToggleStar(located.station) : undefined}
           />
         ) : (
           <LocationCard onRequestLocation={onRequestLocation} />
@@ -243,9 +231,7 @@ export function StationList({
                     speedUnit={speedUnit}
                     now={now}
                     selected={station.id === selectedId}
-                    starred={starredIds.has(station.id)}
                     onSelect={() => onSelect(station)}
-                    onToggleStar={onToggleStar ? () => onToggleStar(station) : undefined}
                   />
                 </li>
               ))}

@@ -375,7 +375,6 @@ export function App() {
           speedUnit={speedUnit}
           now={now}
           onSelect={choose}
-          onToggleStar={toggleStar}
           // A deep link bypasses the gate, so useLocation stays disabled and the
           // ask never fires. Resolving the gate here turns it on — its first fix
           // is the browser prompt this visitor never got.
@@ -415,6 +414,16 @@ export function App() {
 
         <section className="panel hero rise">
           <div className="place">
+            <button
+              className={saved.starred.includes(resolved.slug) ? "place-star starred" : "place-star"}
+              onClick={() => toggleStar(resolved)}
+              aria-pressed={saved.starred.includes(resolved.slug)}
+              aria-label={
+                saved.starred.includes(resolved.slug) ? `Unstar ${resolved.name}` : `Star ${resolved.name}`
+              }
+            >
+              {saved.starred.includes(resolved.slug) ? "★" : "☆"}
+            </button>
             <h1>{resolved.name}</h1>
             {resolved.context && <p className="context">{resolved.context}</p>}
             {heroMatch && (

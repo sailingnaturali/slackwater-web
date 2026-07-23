@@ -258,8 +258,26 @@ button.ghost:hover { border-color: var(--sn-paper); }
 
 /* -------------------------------------------------------------------- hero */
 
-.place h1 { font-size: clamp(1.6rem, 4.5vw, 2.15rem); }
+.place { position: relative; }
+.place h1 { font-size: clamp(1.6rem, 4.5vw, 2.15rem); padding-right: 3rem; }
 .place .context { color: var(--ink-faint); margin: 0.35rem 0 0; font-size: 0.95rem; }
+/* Favourite toggle, upper-right of the detail header (moved off the list cards). */
+.place-star {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: none;
+  color: var(--ink-faint);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.place-star:hover { border-color: var(--sn-steel); }
+.place-star.starred { color: var(--sn-leaf); }
 
 .match { font-size: 0.85rem; margin: 0.6rem 0 0; color: var(--ink-faint); }
 .match.approximate, .match.nearest { color: var(--sn-leaf); }
@@ -612,20 +630,6 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .station-card:hover { border-color: var(--sn-steel); }
 .station-card.current { border-color: var(--sn-leaf); }
 
-.station-card-row { display: flex; align-items: stretch; gap: 0.4rem; }
-.station-card-row .station-card { width: auto; flex: 1; }
-.star-toggle {
-  flex-shrink: 0;
-  width: 2.4rem;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: none;
-  color: var(--ink-faint);
-  font-size: 1.2rem;
-  cursor: pointer;
-}
-.star-toggle:hover { border-color: var(--sn-steel); }
-.star-toggle.starred { color: var(--sn-leaf); }
 
 .station-card-main { display: flex; flex-direction: column; min-width: 0; gap: 0.25rem; }
 .station-card-title { margin: 0; display: flex; align-items: baseline; gap: 0.6rem; }
