@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { TideState } from "./tides";
+import { localDay, type TideState } from "./tides";
 import type { ChsStation } from "./chsStations";
 import { chsTideDay } from "./chs/tide";
 import { type ChsCache, indexedDbCache } from "./chs/cache";
@@ -32,7 +32,12 @@ export function useChsTide(station: ChsStation | null, day: Date): { state: Tide
   const [result, setResult] = useState<{ state: TideState | null; status: ChsStatus }>(
     { state: null, status: "loading" },
   );
-  const dayKey = day.toISOString().slice(0, 10);
+  // Key on the STATION-LOCAL day, not UTC — the chart, the extremes and the CHS
+  // cache all reckon days in the station's timezone. A UTC key flips mid-chart
+  // (at 17:00 local for a UTC-7 station), re-running the effect and blanking to
+  // `loading` while scrubbing within a single displayed day. ponytail: reuses
+  // `localDay`, same helper TideChart keys its curve on.
+  const dayKey = station ? localDay(day, station.timezone) : "";
 
   useEffect(() => {
     if (!station) return;

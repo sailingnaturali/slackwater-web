@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { loadChsTide } from "./useChsTide";
+import { localDay } from "./tides";
 import { memoryCache } from "./chs/cache";
 import hilo from "./chs/fixtures/victoria-wlp-hilo.json";
 import curve from "./chs/fixtures/victoria-wlp.json";
@@ -32,6 +33,19 @@ describe("loadChsTide", () => {
       memoryCache(), fetchFn, stationList as never);
     expect(out.status).toBe("offline");
     expect(out.state).toBeNull();
+  });
+
+  // Regression: the hook keys its refetch on localDay(now, tz), not now.toISOString().
+  // Two instants inside one Victoria day but on opposite sides of UTC midnight must
+  // share a key, or scrubbing across 17:00 local re-runs the effect and blanks the
+  // chart to "loading" mid-day (the scrub flicker).
+  it("keys the same station-local day across the UTC midnight boundary", () => {
+    const tz = victoriaStation().timezone;
+    const morning = new Date("2026-07-23T10:00:00-07:00"); // 17:00 UTC, same day
+    const evening = new Date("2026-07-23T20:00:00-07:00"); // 03:00 UTC next day
+    expect(localDay(morning, tz)).toBe(localDay(evening, tz));
+    // The old UTC key would have split them — that split was the bug.
+    expect(morning.toISOString().slice(0, 10)).not.toBe(evening.toISOString().slice(0, 10));
   });
 
   it("returns offline when the fetch fails and nothing is cached", async () => {
