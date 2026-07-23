@@ -85,7 +85,18 @@ export function EventList({
   const day = now;
   const offset = dayDiff(now, today, station.timezone);
   const events = useMemo(() => {
-    if (isChsCurrent(station)) return currentState ? currentDayEventsFromState(currentState, station, day) : [];
+    if (isChsCurrent(station)) {
+      const currents = currentState ? currentDayEventsFromState(currentState, station, day) : [];
+      // A gate paired with a tide port (Malibu Rapids → Point Atkinson) lists
+      // its high/low turns too — the tide chart sits right above. currents
+      // already carries the sunrise/sunset rows, so take only the tide turns
+      // here (not dayEventsFromState's sun rows) to avoid doubling them.
+      if (!state) return currents;
+      const tideTurns = dayEventsFromState(state, station, day).filter(
+        (e) => e.kind === "high" || e.kind === "low",
+      );
+      return [...currents, ...tideTurns].sort((a, b) => a.time.getTime() - b.time.getTime());
+    }
     if (isChs(station)) return state ? dayEventsFromState(state, station, day) : [];
     return dayEvents(station, day);
   }, [station, day, state, currentState]);

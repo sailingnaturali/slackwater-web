@@ -569,6 +569,10 @@ export function App() {
                 now={curView.now}
                 today={liveNow}
                 units={units}
+                // The companion tide's high/low turns join the gate's slacks in
+                // the schedule, matching the tide chart shown above (undefined
+                // until it loads, or when the gate has no paired tide port).
+                state={companion && tideView ? tideView.state : undefined}
                 currentState={curView.state}
                 speedUnit={speedUnit}
                 onPageDay={pageDay}
