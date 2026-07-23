@@ -344,6 +344,12 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .chart .area { stroke: none; }
 .chart .dot.high { fill: var(--rising); }
 .chart .dot.low { fill: var(--falling); }
+/* Flood/ebb reuse the same rising/falling semantic colours as the tide dots
+   above - flood is water rising toward high, ebb is water falling toward low. */
+.chart .grid.zero { stroke-opacity: 0.5; }
+.chart .dot.slack { fill: var(--ink); }
+.chart .dot.flood { fill: var(--rising); }
+.chart .dot.ebb { fill: var(--falling); }
 .chart .nowline { stroke: var(--ink); stroke-width: 1.25; opacity: 0.4; }
 .chart .nowdot { fill: var(--ink); }
 .chart .readout { fill: var(--ink); font-weight: 600; }

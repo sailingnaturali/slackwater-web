@@ -151,8 +151,8 @@ export function predictRange(station: Station, from: Date, days: number): Extrem
  * "when is high water" is the commonest reason to move the line at all, and
  * landing three minutes off is a worse answer than landing on it.
  */
-export function snapToTurn(t: Date, extremes: Extreme[], windowMinutes: number): Date {
-  let best: Extreme | null = null;
+export function snapToTurn(t: Date, extremes: { time: Date }[], windowMinutes: number): Date {
+  let best: { time: Date } | null = null;
   let bestGap = windowMinutes * 60_000;
   for (const extreme of extremes) {
     const gap = Math.abs(extreme.time.getTime() - t.getTime());
