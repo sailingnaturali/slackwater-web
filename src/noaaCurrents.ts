@@ -105,6 +105,8 @@ const HOUR = 3_600_000;
  * zero crossings are slack. A high that never reaches positive water (or a
  * low that never goes negative) is a weakest-ebb/flood wiggle mid-phase —
  * dropped, because calling it a "max" would mislabel the turn structure.
+ *
+ * @param windowHours prediction window half-width (default: 30h); use wider windows for golden fixtures that span >60h.
  */
 export function noaaCurrentState(station: NoaaCurrentStation, now: Date, windowHours: number = 30): CurrentState {
   const predictor = createTidePredictor(station.constituents, { offset: station.meanFlow });
