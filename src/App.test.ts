@@ -64,6 +64,7 @@ describe("App map route", () => {
     container = null;
     root = null;
     window.history.pushState({}, "", "/");
+    localStorage.clear();
   });
 
   it("opens the map from the sidebar and deep-links at /map", async () => {
@@ -75,5 +76,34 @@ describe("App map route", () => {
       root!.render(createElement(App));
     });
     expect(container.querySelector('[data-testid="map-screen"]')).not.toBeNull();
+  });
+
+  // Spec §1: closing the map (without picking a station) returns to the
+  // station list, not the detail view it happened to be opened from.
+  it("closing the map returns to the station list", async () => {
+    // Resolve the location gate ahead of time (as a returning visitor would
+    // have it) so closing the map falls through to the list, not the gate —
+    // "slackwater.gate" mirrors App.tsx's own SEEN_GATE constant/key.
+    localStorage.setItem("slackwater.gate", "1");
+    window.history.pushState({}, "", "/map");
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => {
+      root!.render(createElement(App));
+    });
+
+    const closeButton = container.querySelector('[data-testid="map-screen"] button');
+    expect(closeButton).not.toBeNull();
+    await act(async () => {
+      (closeButton as HTMLButtonElement).click();
+    });
+
+    expect(container.querySelector('[data-testid="map-screen"]')).toBeNull();
+    // The sidebar is always mounted (shown/hidden via the "open" class), so
+    // asserting on it alone wouldn't distinguish listOpen from closed. The
+    // scrim only renders when listOpen is true — that's the precise signal.
+    expect(container.querySelector(".sidebar.open")).not.toBeNull();
+    expect(container.querySelector(".scrim")).not.toBeNull();
   });
 });

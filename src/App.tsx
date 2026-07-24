@@ -304,7 +304,10 @@ export function App() {
             setMapOpen(false);
           }}
           onClose={() => {
+            // Spec §1: Back returns to the list, not the station detail view
+            // the map happened to be opened from.
             setMapOpen(false);
+            setListOpen(true);
             history.replaceState(null, "", buildUrl(resolved, t));
           }}
         />
