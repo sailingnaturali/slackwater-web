@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StationList } from "./StationList";
 import { resolvedStations, matchStation } from "./tides";
+import { resolvedNoaaCurrentStations } from "./noaaCurrents";
 import type { NearbyStation } from "./nearby";
 import type { ResolvedStation } from "./tides";
 import type { ChsStation } from "./chsStations";
@@ -299,5 +300,27 @@ describe("StationList grouping", () => {
       />,
     );
     expect(html).toContain("See stations near you");
+  });
+
+  it("a NOAA current station's card carries a current reading, not a tide", () => {
+    const station = resolvedNoaaCurrentStations[0];
+    const html = renderToStaticMarkup(
+      <StationList
+        located={null}
+        starred={[station]}
+        recent={[]}
+        nearby={[]}
+        origin={null}
+        selectedId={station.id}
+        units="imperial"
+        now={now}
+        onSelect={() => {}}
+      />,
+    );
+    expect(html).toContain(station.name);
+    // Should show a current reading (Slack, Max flood, or Max ebb)
+    expect(html).toMatch(/Slack|Max flood|Max ebb/);
+    // Should NOT show a tide reading (High or Low)
+    expect(html).not.toMatch(/\bHigh\b|\bLow\b/);
   });
 });

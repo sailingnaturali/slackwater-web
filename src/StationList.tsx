@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { distanceKm, predict, type Match } from "./tides";
 import { isChs, isChsCurrent, companionOf } from "./chsStations";
-import { isNoaaCurrent } from "./noaaCurrents";
+import { isNoaaCurrent, noaaCurrentState } from "./noaaCurrents";
 import { withNowCurrent } from "./chs/current";
 import { withNow } from "./chs/tide";
 import { useChsCurrent } from "./useChsCurrent";
@@ -45,7 +45,11 @@ function GroupCard({
   // fetch on first sight. `null` for any non-current station → the hook no-ops.
   const gate = isChsCurrent(station) ? station : null;
   const chsCur = useChsCurrent(gate, now);
-  const current = chsCur.state ? withNowCurrent(chsCur.state, now) : undefined;
+  const current = isNoaaCurrent(station)
+    ? noaaCurrentState(station, now)
+    : chsCur.state
+      ? withNowCurrent(chsCur.state, now)
+      : undefined;
 
   // Tide reading. A gate borrows its companion tide port (Malibu Rapids → Point
   // Atkinson); a standalone CHS tide port (e.g. Victoria as the current location)
