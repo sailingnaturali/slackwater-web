@@ -23,7 +23,7 @@ import { OfflineStatus } from "./OfflineStatus";
 import { OfflineManager } from "./OfflineManager";
 import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
-import { stationsNear, candidates, locateStation, type Candidate } from "./place";
+import { stationsNear, candidates, locateStation, type Candidate, type Place } from "./place";
 import { isChs, isChsCurrent, companionOf, type ChsStation } from "./chsStations";
 import { isNoaaCurrent, noaaCurrentState, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
 import { useChsTide } from "./useChsTide";
@@ -95,6 +95,30 @@ export function heldWhileLoading<T>(
   }
   if (loading && ref.current?.stationId === stationId) return ref.current;
   return null;
+}
+
+/**
+ * The hero's "N <unit> away · <quality>" badge, or null to hide it.
+ *
+ * The badge grades how well an AUTO-LOCATED station fits your place, so it only
+ * shows while `match` is set — `choose()` clears it for a deliberate pick, which
+ * needs no such hedging. When shown, it measures the VIEWED `station` against
+ * your place, never live.place's nearest station: the old code keyed off
+ * `live.place` alone and computed for its nearest station, so a station you
+ * navigated to showed a *different* station's distance and a stale "good match"
+ * under its name.
+ */
+export function heroMatchFor(
+  place: Place | null,
+  match: Match | null,
+  station: { latitude: number; longitude: number },
+): { km: number; quality: Match["quality"] } | null {
+  if (!match) return null;
+  if (place) {
+    const km = distanceKm(place, station);
+    return { km, quality: matchQuality(km, m2SpreadMinutes(stationsNear(place, 3))) };
+  }
+  return { km: match.distanceKm, quality: match.quality };
 }
 
 export function App() {
@@ -278,17 +302,10 @@ export function App() {
    * GPS while ranking against the place put two different numbers for one
    * station side by side on the same screen.
    */
-  const heroMatch = useMemo(() => {
-    if (live.place) {
-      const { place, station: matched } = live.place;
-      const neighbours = stationsNear(place, 3);
-      return {
-        km: distanceKm(place, matched),
-        quality: matchQuality(distanceKm(place, matched), m2SpreadMinutes(neighbours)),
-      };
-    }
-    return match ? { km: match.distanceKm, quality: match.quality } : null;
-  }, [live.place, match]);
+  const heroMatch = useMemo(
+    () => heroMatchFor(live.place?.place ?? null, match, station),
+    [live.place, match, station],
+  );
   // The display identity for the viewed station: a CHS port or a NOAA current
   // station already carries its own name/context/position; a bundled tide
   // station maps to its resolved record. The `!` is sound — every bundled

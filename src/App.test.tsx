@@ -2,7 +2,8 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { createElement, act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createRoot, type Root } from "react-dom/client";
-import { heldWhileLoading, App } from "./App";
+import { heldWhileLoading, heroMatchFor, App } from "./App";
+import { distanceKm, type Match } from "./tides";
 import { resolvedNoaaCurrentStations } from "./noaaCurrents";
 
 // react-dom/client's createRoot renders outside React's own act() batching
@@ -85,6 +86,28 @@ describe("App: NOAA current station detail view", () => {
     // EventList routing fix, not just the hero reading.
     const schedule = main.slice(main.indexOf('class="event-rows"'));
     expect(schedule).toMatch(/pill (slack|flood|ebb)/);
+  });
+});
+
+describe("heroMatchFor", () => {
+  const place = { name: "Test", region: "Salish", latitude: 48.5, longitude: -123.0 };
+  const station = { latitude: 48.6, longitude: -123.1 };
+  const match = { distanceKm: 3.2, quality: "good" } as unknown as Match;
+
+  it("hides the badge for a deliberate pick even while geolocation is active", () => {
+    // The bug: with live.place set but `match` cleared by choose(), the old
+    // code still rendered "N nm away · good match" — describing the nearest
+    // station under whatever you'd navigated to. No match ⇒ no badge.
+    expect(heroMatchFor(place, null, station)).toBeNull();
+  });
+
+  it("measures the VIEWED station against your place, not live.place's nearest", () => {
+    const r = heroMatchFor(place, match, station)!;
+    expect(r.km).toBeCloseTo(distanceKm(place, station), 5);
+  });
+
+  it("falls back to the raw match before a place resolves", () => {
+    expect(heroMatchFor(null, match, station)).toEqual({ km: 3.2, quality: "good" });
   });
 });
 
