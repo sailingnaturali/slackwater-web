@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -7,6 +7,9 @@ export default defineConfig({
     // Only usePreferences.test.ts needs a DOM (localStorage); everything else
     // runs fine without one, so this is the cheapest environment that works.
     environment: "jsdom",
+    // Session worktrees nest under .claude/worktrees/ — without this, vitest
+    // collects THEIR test files too and a mid-rebase worktree fails the suite.
+    exclude: [...configDefaults.exclude, "**/.claude/**"],
   },
   plugins: [
     react(),

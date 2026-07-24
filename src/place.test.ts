@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { nearestPlace, stationsNear, matchForPosition, locateStation, candidates } from "./place";
 import { setPlaceStation } from "./savedStations";
 import { isNoaaCurrent } from "./noaaCurrents";
+import { isChsCurrent } from "./chsStations";
 
 const victoria = { latitude: 48.4284, longitude: -123.3656 };
 const seattle = { latitude: 47.6062, longitude: -122.3321 };
@@ -77,4 +78,21 @@ describe("stationsNear", () => {
 
 it("the candidate pool includes bundled NOAA current stations", () => {
   expect(candidates.some((s) => isNoaaCurrent(s))).toBe(true);
+});
+
+describe("auto-locate tide bias", () => {
+  it("the automatic pick is never a current station, even where one is nearest", () => {
+    // Find real ground where the raw nearest candidate IS a current station
+    // (Puget Sound guarantees several: currents outnumber tide stations 3:1).
+    const isCurrent = (s: (typeof candidates)[number]) => isChsCurrent(s) || isNoaaCurrent(s);
+    const polluted = candidates
+      .filter(isCurrent)
+      .map((s) => matchForPosition({ latitude: s.latitude, longitude: s.longitude }))
+      .filter((m): m is NonNullable<typeof m> => m !== null)
+      .find((m) => isCurrent(m.alternatives[0]));
+    expect(polluted).toBeDefined();
+    expect(isCurrent(polluted!.station)).toBe(false);
+    // The chooser still offers the pick alongside the nearer current stations.
+    expect(polluted!.alternatives.some((s) => s.slug === polluted!.station.slug)).toBe(true);
+  });
 });
