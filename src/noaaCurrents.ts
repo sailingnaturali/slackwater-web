@@ -106,10 +106,10 @@ const HOUR = 3_600_000;
  * low that never goes negative) is a weakest-ebb/flood wiggle mid-phase —
  * dropped, because calling it a "max" would mislabel the turn structure.
  */
-export function noaaCurrentState(station: NoaaCurrentStation, now: Date): CurrentState {
+export function noaaCurrentState(station: NoaaCurrentStation, now: Date, windowHours: number = 30): CurrentState {
   const predictor = createTidePredictor(station.constituents, { offset: station.meanFlow });
-  const start = new Date(now.getTime() - 30 * HOUR);
-  const end = new Date(now.getTime() + 30 * HOUR);
+  const start = new Date(now.getTime() - windowHours * HOUR);
+  const end = new Date(now.getTime() + windowHours * HOUR);
 
   const timeline = predictor
     .getTimelinePrediction({ start, end, timeFidelity: 600 })
