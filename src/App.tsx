@@ -264,11 +264,15 @@ export function App() {
     }
     return match ? { km: match.distanceKm, quality: match.quality } : null;
   }, [live.place, match]);
-  // The display identity for the viewed station: a CHS port already carries its
-  // own name/context/position; a bundled station maps to its resolved record.
-  // The `!` is sound — every NOAA station has a 1:1 resolved entry.
+  // The display identity for the viewed station: a CHS port or a NOAA current
+  // station already carries its own name/context/position; a bundled tide
+  // station maps to its resolved record. The `!` is sound — every bundled
+  // tide station has a 1:1 resolved entry.
   const resolved: Candidate = useMemo(
-    () => (isChs(station) ? station : resolvedStations.find((s) => s.id === station.id)!),
+    () =>
+      isChs(station) || isNoaaCurrent(station)
+        ? station
+        : resolvedStations.find((s) => s.id === station.id)!,
     [station],
   );
 
@@ -653,16 +657,8 @@ export function App() {
             </p>
           ) : isNoaaCurrent(station) ? (
             // tsc-forced (station.chartDatum below doesn't exist on a current
-            // station): copy is Task 6's, not new design — the rest of Task
-            // 6's detail-view rendering (CurrentChart/EventList) is unreached
-            // today since tideView/curView both stay null for one (see the
-            // noaaState guard above), left for that task.
-            <p className="muted">
-              Current predictions for {resolved.name} are computed on your device from{" "}
-              <a href="https://tidesandcurrents.noaa.gov/">NOAA CO-OPS</a> harmonic
-              constituents (public domain) — no connection needed. Speeds are along the
-              channel axis at the station point.
-            </p>
+            // station); copy is Task 6's to author.
+            null
           ) : (
             <p className="muted">
               Heights above {station.chartDatum}, times local to the station. {stations.length}{" "}
