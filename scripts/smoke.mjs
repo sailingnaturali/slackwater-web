@@ -88,36 +88,84 @@ async function main() {
       // not a general-purpose browsing session.
       args: ["--no-sandbox"],
     });
-    // M5: /map opens the discovery map directly (M4 wired mapOpen from
-    // window.location.pathname, bypassing the location gate). This has to run
-    // as the very first navigation, before anything else on this origin
-    // installs the PWA service worker: once the SW is controlling, its
-    // default Workbox precache route serves the precached land.pmtiles as a
-    // plain 200 with no Range/Content-Length support, and pmtiles' own
-    // byte-serving check throws on that — a real bug (land.pmtiles needs
-    // workbox-range-requests wired to its precache route to survive a
-    // returning/offline visit), but out of scope for this smoke-only task.
-    // A genuinely cold load — first tab, first request — has no SW yet, so
-    // land.pmtiles is fetched straight from the static server, which does
-    // support Range (confirmed with curl). Seascape bathymetry + glyphs are
-    // still external and expected to fail (filtered as isChsFetchNoise);
-    // waiting for the canvas MapLibre actually draws to is proof the map
-    // booted on its offline-capable fallback, not just that the container
-    // div mounted. pageerror stays unfiltered — a real MapLibre crash must
-    // still fail the smoke.
+    // Fix 1: land.pmtiles must render offline via the workbox runtime Range
+    // route (see vite.config.ts's runtimeCaching entry), not the Workbox
+    // precache — a precache response is a plain 200 with the full body and no
+    // Range support, but pmtiles reads the archive with Range requests and
+    // requires 206. Load /map ONLINE first so the SW installs and takes
+    // control and main.tsx's warm-fetch pulls land.pmtiles into the runtime
+    // Range cache, then cut the network at the CDP level and reload — MapLibre
+    // must still boot on the cached pmtiles. Before Fix 1, the pmtiles range
+    // read against the SW's precached 200 throws a same-origin /land.pmtiles
+    // error here (not tile-host noise), so this assertion fails without the
+    // fix and passes with it. Seascape bathymetry + glyphs are still external
+    // and expected to fail either way (filtered as isChsFetchNoise); waiting
+    // for the canvas MapLibre actually draws to is proof the map booted on its
+    // offline-capable fallback, not just that the container div mounted.
+    // pageerror stays unfiltered — a real MapLibre crash must still fail the
+    // smoke.
     const mapErrors = [];
     const mapPage = await browser.newPage();
+    // First load installs the service worker but does NOT control this page yet
+    // (registerType 'prompt' → no clientsClaim; a SW only controls navigations
+    // that start after it activates). So map + land here come straight from the
+    // network, uncached.
+    await mapPage.goto(`${URL}map`, { waitUntil: "domcontentloaded" });
+    await mapPage.waitForSelector(".map-canvas .maplibregl-canvas", { timeout: 10_000 });
+    await mapPage.evaluate(() => navigator.serviceWorker.ready);
+
+    // Reload: NOW the active SW controls the page, so main.tsx's warm-fetch and
+    // the map's own pmtiles reads go through the runtime Range route and land
+    // land.pmtiles in the "land-pmtiles" cache — which is what makes the offline
+    // reload below able to draw coastline. Reloading before the SW controls the
+    // page would just prove the runtime route was never in the loop.
+    await mapPage.reload({ waitUntil: "domcontentloaded" });
+    await mapPage.waitForSelector(".map-canvas .maplibregl-canvas", { timeout: 10_000 });
+    await mapPage.waitForFunction(() => navigator.serviceWorker.controller != null, {
+      timeout: 15_000,
+    });
+    await mapPage.waitForFunction(
+      async () => (await (await caches.open("land-pmtiles")).match("/land.pmtiles")) != null,
+      { timeout: 15_000 },
+    );
+
+    const mapCdp = await mapPage.createCDPSession();
+    await mapCdp.send("Network.enable");
+    await mapCdp.send("Network.emulateNetworkConditions", {
+      offline: true,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    });
+
+    // Prove the network is really down before trusting the reload below (see
+    // the offline-reload check further down — navigator.onLine lies under
+    // this exact emulation).
+    const mapNetworkState = await mapPage.evaluate(() =>
+      fetch("https://example.com/" + Math.random())
+        .then(() => "UP")
+        .catch(() => "down"),
+    );
+    if (mapNetworkState !== "down") {
+      throw new Error(`/map network emulation did not take effect: fetch reported "${mapNetworkState}"`);
+    }
+
+    // Listeners attach only now, same reasoning as the main offline-reload
+    // check below: the proof fetch above deliberately targets an unreachable
+    // origin and Chrome logs its own resource-load error for that regardless
+    // of the JS-level .catch() — a false positive if counted as an app error.
     mapPage.on("pageerror", (err) => mapErrors.push(`pageerror: ${err.message}`));
     mapPage.on("console", (msg) => {
       if (msg.type() === "error" && !isChsFetchNoise(msg.text())) mapErrors.push(`console.error: ${msg.text()}`);
     });
-    await mapPage.goto(`${URL}map`, { waitUntil: "domcontentloaded" });
-    await mapPage.waitForSelector(".map-canvas", { timeout: 10_000 });
-    // Proof MapLibre actually booted (WebGL context up, tiles drawing) —
-    // not just that the container div mounted.
+
+    await mapPage.reload({ waitUntil: "domcontentloaded" });
+    // This is the assertion Fix 1 exists for: before the runtime Range route,
+    // the pmtiles read against the SW's precached (Range-less) response
+    // throws before MapLibre ever gets a canvas up.
     await mapPage.waitForSelector(".map-canvas .maplibregl-canvas", { timeout: 10_000 });
     if (mapErrors.length) {
-      throw new Error(`/map page reported errors:\n${mapErrors.join("\n")}`);
+      throw new Error(`/map offline reload reported errors:\n${mapErrors.join("\n")}`);
     }
     await mapPage.close();
 
