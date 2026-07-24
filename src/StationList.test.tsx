@@ -281,7 +281,7 @@ describe("StationList grouping", () => {
         onSelect={() => {}}
       />,
     );
-    expect(html).toContain("dir rising"); // ▲ for flood, like the group cards
+    expect(html).toContain("compass-arrow flood"); // arrow toward the set, like the group cards
     expect(html).toContain("2.1");
   });
 
