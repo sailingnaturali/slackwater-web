@@ -65,8 +65,8 @@ function GroupCard({
       km={km ?? undefined}
       // A CHS station (gate's companion, or a tide port's own) shows its loaded
       // tide; a bundled NOAA station predicts synchronously. A NOAA current
-      // station has no height prediction to make (Task 7's job — this guard
-      // only keeps predict() from ever seeing one).
+      // station has no height prediction to make — this guard only keeps
+      // predict() from ever seeing one.
       state={isChs(station) ? tide : isNoaaCurrent(station) ? undefined : predict(station, now)}
       current={current}
       units={units}

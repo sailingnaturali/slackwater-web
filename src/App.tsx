@@ -218,8 +218,8 @@ export function App() {
   const chsStation = isChs(station) && !isChsCurrent(station) ? station : companion;
   const chs = useChsTide(chsStation, now);
   const noaaState = useMemo(
-    // isNoaaCurrent: a current station has no height prediction to make
-    // (Task 6's job — this guard only keeps predict() from ever seeing one).
+    // isNoaaCurrent: a current station has no height prediction to make —
+    // this guard only keeps predict() from ever seeing one.
     () => (isChs(station) || isNoaaCurrent(station) ? null : predict(station, now)),
     [station, now],
   );

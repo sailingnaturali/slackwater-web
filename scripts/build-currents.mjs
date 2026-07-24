@@ -48,7 +48,13 @@ const stations = bundle.stations
     meanFlow: s.offset,
     constituents: s.constituents.filter((c) => c.amplitude > 0),
   }))
-  .sort((a, b) => a.name.localeCompare(b.name));
+  // Codepoint compare, not localeCompare: this file is gitignored and
+  // rebuilt on whatever machine runs dev/build/test, and localeCompare with
+  // no locale pinned uses the runtime's default collation — punctuation
+  // ordering varies across locales/ICU builds, which can mint different
+  // public slugs for the 37 colliding station names on different machines.
+  // The id tiebreak keeps ties (equal names) deterministic too.
+  .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : 1));
 
 if (!stations.length) {
   throw new Error("No current stations survived the filters — refusing to ship an empty bundle");

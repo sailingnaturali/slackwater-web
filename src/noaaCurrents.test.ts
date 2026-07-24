@@ -78,6 +78,19 @@ describe("resolvedNoaaCurrentStations", () => {
     }
   });
 
+  it("pins the real Alki Point ladder outcome (catches a re-sort silently reassigning public slugs)", () => {
+    // Two real bundled stations share the "Alki Point" name, disambiguated
+    // only by context (see assignSlug). Pinned to actual output from the
+    // build pipeline, not constructed — a locale-dependent or otherwise
+    // reordered sort in build-currents.mjs would flip which one gets the
+    // bare slug without any other test catching it (currents.json is
+    // gitignored, so there's no tracked diff to notice either).
+    const oneMileWest = resolvedNoaaCurrentStations.find((s) => s.id === "noaa/PUG1502")!;
+    const west = resolvedNoaaCurrentStations.find((s) => s.id === "noaa/PUG1516")!;
+    expect(oneMileWest.slug).toBe("alki-point");
+    expect(west.slug).toBe("alki-point-current");
+  });
+
   it("never collides a slug with any other station the app can name", () => {
     const others = new Set([
       ...resolvedStations.map((s) => s.slug),

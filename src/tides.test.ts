@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { stations, predict, extremesOn, matchStation, distanceKm, localDay } from "./tides";
+import {
+  stations,
+  predict,
+  extremesOn,
+  matchStation,
+  distanceKm,
+  localDay,
+  m2SpreadMinutes,
+} from "./tides";
 
 const fridayHarbor = stations.find((s) => /friday harbor/i.test(s.name))!;
 const noon = new Date("2026-07-20T19:00:00Z");
@@ -113,6 +121,22 @@ describe("matchStation", () => {
     // enough in M2 phase that a confident snap would be misleading.
     const match = matchStation({ latitude: 48.75, longitude: -122.48 })!;
     expect(match.quality).not.toBe("good");
+  });
+});
+
+describe("m2SpreadMinutes", () => {
+  it("ignores a NOAA current station's velocity-M2 phase", () => {
+    // A current station's M2 phase describes the velocity zero-crossing, not
+    // the tide-height turn — mixing it into a height-phase spread must not
+    // move the number at all, same as if the entry were absent.
+    const pool = stations.slice(0, 3);
+    const withoutCurrent = m2SpreadMinutes(pool);
+    const currentStation = {
+      kind: "noaa-current",
+      constituents: [{ name: "M2", phase: 300 }],
+    };
+    const withCurrent = m2SpreadMinutes([...pool, currentStation]);
+    expect(withCurrent).toBe(withoutCurrent);
   });
 });
 

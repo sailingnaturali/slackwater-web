@@ -328,11 +328,21 @@ export interface Match {
  * to this module): `constituents` is optional on `ChsStation`, and TS treats
  * an all-optional target type as "weak", rejecting any union member — like
  * `ChsStation` — that shares no property with it at all.
+ *
+ * A NOAA current station's M2 phase describes when the *velocity* crosses
+ * zero, not when the *height* turns — a different reference epoch that runs
+ * ~4-5 hours ahead of the tide-station phase near Seattle. Mixed into this
+ * height-phase spread it reads as wild disagreement between neighbours that
+ * are, for tide-turn purposes, in perfect agreement — so a current station
+ * contributes no phase here either, same as a CHS port.
  */
 export function m2SpreadMinutes(candidates: unknown[]): number {
   const phases = candidates
     .map((s) =>
-      (s && typeof s === "object" && "constituents" in s
+      (s &&
+      typeof s === "object" &&
+      "constituents" in s &&
+      !("kind" in s && s.kind === "noaa-current")
         ? (s.constituents as { name: string; phase: number }[] | undefined)
         : undefined
       )?.find((c) => c.name === "M2")?.phase,
