@@ -330,6 +330,7 @@ export function App() {
         <MapScreen
           stations={candidates}
           units={units}
+          speedUnit={speedUnit}
           selectedId={station.id}
           onSelect={(next) => {
             choose(next); // choose() already replaces the URL with the station's

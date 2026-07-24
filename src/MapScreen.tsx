@@ -3,8 +3,9 @@ import maplibregl from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Candidate } from "./place";
-import { heightUnit, type Units } from "./units";
+import { heightUnit, type Units, type SpeedUnit } from "./units";
 import { composeStyle, localFallbackStyle, pinFeatures, seascapeStyleUrl, type StyleLike } from "./mapStyle";
+import { previewHtml } from "./mapPopup";
 
 // Registered once per session; the protocol resolves pmtiles:// tile requests
 // via HTTP range reads against our own origin.
@@ -20,12 +21,14 @@ const SALISH_CENTER: [number, number] = [-123.4, 48.6];
 export default function MapScreen({
   stations,
   units,
+  speedUnit,
   selectedId,
   onSelect,
   onClose,
 }: {
   stations: Candidate[];
   units: Units;
+  speedUnit: SpeedUnit;
   selectedId: string;
   onSelect: (s: Candidate) => void;
   onClose: () => void;
@@ -80,12 +83,34 @@ export default function MapScreen({
       if (station) onSelectRef.current(station);
     };
     map.on("click", pick);
-    map.on("mouseenter", "station-dots", () => (map.getCanvas().style.cursor = "pointer"));
-    map.on("mouseleave", "station-dots", () => (map.getCanvas().style.cursor = ""));
+
+    // Hover preview: the header card's identity + live reading, so you know a
+    // station before clicking in. One reused popup, repositioned per pin.
+    // units/speedUnit are captured at mount (like the Seascape fetch above).
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 12,
+      className: "map-popup",
+    });
+    map.on("mouseenter", "station-dots", (e) => {
+      map.getCanvas().style.cursor = "pointer";
+      const f = e.features?.[0];
+      const slug = f?.properties?.slug as string | undefined;
+      const station = slug ? stations.find((s) => s.slug === slug) : undefined;
+      if (!f || !station) return;
+      const coords = (f.geometry as GeoJSON.Point).coordinates.slice(0, 2) as [number, number];
+      popup.setLngLat(coords).setHTML(previewHtml(station, new Date(), units, speedUnit)).addTo(map);
+    });
+    map.on("mouseleave", "station-dots", () => {
+      map.getCanvas().style.cursor = "";
+      popup.remove();
+    });
 
     return () => {
       gone = true;
       mapRef.current = null;
+      popup.remove();
       map.remove();
     };
     // Map is created once per mount: selectedId re-centers via the effect
