@@ -63,10 +63,18 @@ entries are **naming-quality curation, not a blocker**: current stations resolve
 through the same resolver on day one, and corrections land upstream in
 `@sailingnaturali/station-corrections` when a name deserves better.
 
-One rule the resolver can't provide: a current station named after the same water
-as a tide station (Friday Harbor has both) must not shadow the tide slug already
-in shared links — the app appends `-current` as a deterministic tiebreak, and a
-test asserts global slug uniqueness across everything the app can name.
+One rule the resolver can't provide: slug uniqueness. A current station named
+after the same water as a tide station (Friday Harbor has both) must not shadow
+the tide slug already in shared links — and NOAA current stations also collide
+with *each other* (implementation found 37 of 133: NOAA's distinguishing
+qualifier, "Alki Point, 0.3 mi. west of", is moved into `context` by name
+cleaning, so whole neighbourhoods clean to one slug). The app assigns slugs by
+a deterministic ladder — cleaned slug → `-current` suffix → slug from
+name + context (pulls the qualifier back in) → provider-id suffix (guaranteed
+unique) — over the name-sorted list, and a test asserts global uniqueness plus
+the ladder's order. Ladder rungs 3–4 are placeholders that upstream
+station-corrections curation may later replace; `formerSlugs` is the URL
+migration path when it does.
 
 ## 4. UI: no new views
 
