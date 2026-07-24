@@ -1,0 +1,65 @@
+/**
+ * Shape the vendored NOAA current-station extract (data/noaa-currents.json,
+ * from @sailingnaturali/current-stations — see its README for re-vendoring)
+ * into the app's bundled current stations.
+ *
+ * Filters, all load-bearing:
+ * 1. Harmonic stations only — a subordinate is offsets against a reference and
+ *    needs the reduction math slackwater-engine has; not ported yet.
+ *    ponytail: harmonic-only; port the engine's subordinate reduction when a
+ *    pass we care about turns out to be subordinate-only.
+ * 2. Primary bin only (bundle key without "@") — one station, one prediction.
+ * 3. Zero-amplitude constituents contribute nothing but bytes.
+ * 4. Salish Sea geographic bounds (47–50.5°N, −125.5°–−122°W) — the extraction
+ *    tool pulls in out-of-bounds harmonic reference stations for subordinates
+ *    (e.g., SFB1201 San Francisco Bay Entrance is a reference for a Salish Sea
+ *    subordinate). Filter here to prevent them leaking into the bundle.
+ */
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const src = join(here, "..", "data", "noaa-currents.json");
+const out = join(here, "..", "src", "data", "currents.json");
+
+const bundle = JSON.parse(readFileSync(src, "utf8"));
+
+const stations = bundle.stations
+  .filter((s) => s.type === "harmonic")
+  .filter((s) => !s.id.includes("@"))
+  .filter((s) => s.constituents.some((c) => c.amplitude > 0))
+  .filter(
+    (s) =>
+      s.latitude >= 47.0 &&
+      s.latitude <= 50.5 &&
+      s.longitude >= -125.5 &&
+      s.longitude <= -122.0
+  )
+  .map((s) => ({
+    id: `noaa/${s.id}`,
+    name: s.name,
+    latitude: s.latitude,
+    longitude: s.longitude,
+    // ponytail: the bbox is single-zone; add a per-station field only if it widens.
+    timezone: "America/Los_Angeles",
+    floodDirection: s.floodDirection,
+    ebbDirection: s.ebbDirection,
+    meanFlow: s.offset,
+    constituents: s.constituents.filter((c) => c.amplitude > 0),
+  }))
+  // Codepoint compare, not localeCompare: this file is gitignored and
+  // rebuilt on whatever machine runs dev/build/test, and localeCompare with
+  // no locale pinned uses the runtime's default collation — punctuation
+  // ordering varies across locales/ICU builds, which can mint different
+  // public slugs for the 37 colliding station names on different machines.
+  // The id tiebreak keeps ties (equal names) deterministic too.
+  .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : 1));
+
+if (!stations.length) {
+  throw new Error("No current stations survived the filters — refusing to ship an empty bundle");
+}
+
+mkdirSync(dirname(out), { recursive: true });
+writeFileSync(out, JSON.stringify(stations));
+console.log(`${stations.length} NOAA current stations, ${(JSON.stringify(stations).length / 1024).toFixed(0)} KB`);

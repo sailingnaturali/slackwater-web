@@ -9,6 +9,7 @@ import {
   type TideState,
 } from "./tides";
 import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
+import { isNoaaCurrent, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
 import type { CurrentState } from "./chs/current";
 import { formatHeight, formatSpeed, heightUnit, speedUnitLabel, type SpeedUnit, type Units } from "./units";
 
@@ -61,8 +62,11 @@ export function EventList({
 }: {
   // Full station for the bundled path (paging recomputes from constituents);
   // a CHS port carries no harmonics, so its `state` is passed in and the day's
-  // turns are read off that instead.
-  station: Station | ChsStation;
+  // turns are read off that instead. A bundled NOAA current station is the
+  // same shape as a CHS current gate — its slacks/maxes come from
+  // `currentState`, not `dayEvents` (which needs real height constituents,
+  // not a current station's velocity harmonics).
+  station: Station | ChsStation | ResolvedNoaaCurrentStation;
   // The shared scrub instant: the day the chart and hero are on. Paging moves
   // it (via onPageDay) rather than tracking a private offset, so this list and
   // the scrubber viz can never drift onto different days.
@@ -98,6 +102,9 @@ export function EventList({
       return [...currents, ...tideTurns].sort((a, b) => a.time.getTime() - b.time.getTime());
     }
     if (isChs(station)) return state ? dayEventsFromState(state, station, day) : [];
+    // A bundled current station's day is built the same way a CHS gate's is —
+    // slacks/maxes from `currentState`, no paired tide port to merge in.
+    if (isNoaaCurrent(station)) return currentState ? currentDayEventsFromState(currentState, station, day) : [];
     return dayEvents(station, day);
   }, [station, day, state, currentState]);
   const nearest = useMemo(() => nearestEvent(events, now), [events, now]);

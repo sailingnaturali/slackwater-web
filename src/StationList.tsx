@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { distanceKm, predict, type Match, type ResolvedStation } from "./tides";
-import { isChs, isChsCurrent, companionOf, type ChsStation } from "./chsStations";
+import { distanceKm, predict, type Match } from "./tides";
+import { isChs, isChsCurrent, companionOf } from "./chsStations";
+import { isNoaaCurrent, noaaCurrentState } from "./noaaCurrents";
 import { withNowCurrent } from "./chs/current";
 import { withNow } from "./chs/tide";
 import { useChsCurrent } from "./useChsCurrent";
@@ -44,7 +45,11 @@ function GroupCard({
   // fetch on first sight. `null` for any non-current station → the hook no-ops.
   const gate = isChsCurrent(station) ? station : null;
   const chsCur = useChsCurrent(gate, now);
-  const current = chsCur.state ? withNowCurrent(chsCur.state, now) : undefined;
+  const current = isNoaaCurrent(station)
+    ? noaaCurrentState(station, now)
+    : chsCur.state
+      ? withNowCurrent(chsCur.state, now)
+      : undefined;
 
   // Tide reading. A gate borrows its companion tide port (Malibu Rapids → Point
   // Atkinson); a standalone CHS tide port (e.g. Victoria as the current location)
@@ -59,8 +64,10 @@ function GroupCard({
       station={station}
       km={km ?? undefined}
       // A CHS station (gate's companion, or a tide port's own) shows its loaded
-      // tide; a bundled NOAA station predicts synchronously.
-      state={isChs(station) ? tide : predict(station, now)}
+      // tide; a bundled NOAA station predicts synchronously. A NOAA current
+      // station has no height prediction to make — this guard only keeps
+      // predict() from ever seeing one.
+      state={isChs(station) ? tide : isNoaaCurrent(station) ? undefined : predict(station, now)}
       current={current}
       units={units}
       speedUnit={speedUnit}
@@ -71,8 +78,8 @@ function GroupCard({
 }
 
 export interface LocatedStation {
-  /** Union: the located station can be a CHS port (e.g. Victoria). */
-  station: ResolvedStation | ChsStation;
+  /** Union: the located station can be a CHS port (e.g. Victoria) or a NOAA current station. */
+  station: Candidate;
   match: Match;
 }
 
@@ -133,7 +140,7 @@ export function StationList({
   units: Units;
   speedUnit?: SpeedUnit;
   now: Date;
-  onSelect: (station: ResolvedStation | ChsStation) => void;
+  onSelect: (station: Candidate) => void;
   onRequestLocation?: () => void;
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());

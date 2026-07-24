@@ -4,7 +4,6 @@ import { createTidePredictor } from "@neaps/tide-predictor";
 // (1.2.x needed the data hand-imported here; that blanked the page.)
 import { createBundledResolver } from "@sailingnaturali/station-corrections";
 import { getTimes as getSunTimes } from "suncalc";
-import type { ChsStation } from "./chsStations";
 import type { CurrentState } from "./chs/current"; // type-only: no runtime cycle
 import stationData from "./data/stations.json";
 
@@ -302,8 +301,14 @@ export function distanceKm(
 }
 
 export interface Match {
-  /** Union because a matched station can be a CHS port; only distance/quality are read downstream. */
-  station: Station | ChsStation;
+  /**
+   * Only `.id` is read downstream (a `matchStation` test), so a minimal
+   * structural shape rather than `Station | ChsStation`: the candidate pool
+   * (`Candidate` in place.ts) now also carries NOAA current stations, which
+   * can't be named here without an import cycle (place.ts already imports
+   * this module for `Match`/`ResolvedStation`).
+   */
+  station: { id: string };
   distanceKm: number;
   /**
    * How much to trust this station for the requested position. Distance alone
@@ -318,11 +323,30 @@ export interface Match {
  *
  * Accepts anything with (optional) constituents so a CHS port — which carries
  * none — can sit in the same candidate pool: it simply contributes no phase to
- * the spread, exactly as if it were absent.
+ * the spread, exactly as if it were absent. `unknown[]`, not a structural
+ * `{ constituents?: ... }[]` or `Candidate` (place.ts, which would cycle back
+ * to this module): `constituents` is optional on `ChsStation`, and TS treats
+ * an all-optional target type as "weak", rejecting any union member — like
+ * `ChsStation` — that shares no property with it at all.
+ *
+ * A NOAA current station's M2 phase describes when the *velocity* crosses
+ * zero, not when the *height* turns — a different reference epoch that runs
+ * ~4-5 hours ahead of the tide-station phase near Seattle. Mixed into this
+ * height-phase spread it reads as wild disagreement between neighbours that
+ * are, for tide-turn purposes, in perfect agreement — so a current station
+ * contributes no phase here either, same as a CHS port.
  */
-export function m2SpreadMinutes(candidates: (Station | ChsStation)[]): number {
+export function m2SpreadMinutes(candidates: unknown[]): number {
   const phases = candidates
-    .map((s) => ("constituents" in s ? s.constituents : undefined)?.find((c) => c.name === "M2")?.phase)
+    .map((s) =>
+      (s &&
+      typeof s === "object" &&
+      "constituents" in s &&
+      !("kind" in s && s.kind === "noaa-current")
+        ? (s.constituents as { name: string; phase: number }[] | undefined)
+        : undefined
+      )?.find((c) => c.name === "M2")?.phase,
+    )
     .filter((p): p is number => p != null);
   if (phases.length < 2) return 0;
   // M2 advances 28.98°/hr, so degrees convert to minutes directly.

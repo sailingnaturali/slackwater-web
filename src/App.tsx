@@ -25,6 +25,7 @@ import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
 import { stationsNear, candidates, locateStation, type Candidate } from "./place";
 import { isChs, isChsCurrent, companionOf, type ChsStation } from "./chsStations";
+import { isNoaaCurrent, noaaCurrentState, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
 import { useChsTide } from "./useChsTide";
 import { useChsCurrent } from "./useChsCurrent";
 import { withNow } from "./chs/tide";
@@ -56,6 +57,13 @@ const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations
 // Lazy: keeps MapLibre (and its WASM/tile machinery) out of the entry chunk —
 // most visits never open the map.
 const MapScreen = lazy(() => import("./MapScreen"));
+
+/**
+ * The viewed station: `Candidate` plus plain `Station` for `FALLBACK`, which
+ * is unresolved (no slug/context/aliases) — it seeds `station` before a URL
+ * or gate match ever resolves one.
+ */
+type ViewStation = Station | ChsStation | ResolvedNoaaCurrentStation;
 
 const SEEN_GATE = "slackwater.gate";
 
@@ -99,7 +107,7 @@ export function App() {
   const [gated, setGated] = useState(() => !localStorage.getItem(SEEN_GATE));
   // Either a bundled NOAA station or a CHS port — the viewed station drives the
   // whole detail view, and CHS ports are named stations too (spec §7).
-  const [station, setStation] = useState<Station | ChsStation>(() => urlMatch?.station ?? FALLBACK);
+  const [station, setStation] = useState<ViewStation>(() => urlMatch?.station ?? FALLBACK);
   const [match, setMatch] = useState<Match | null>(null);
   const [saved, setSaved] = useState<Saved>(loadSaved);
   // Separate from `match`: CURRENT LOCATION keeps showing where you are even
@@ -206,6 +214,10 @@ export function App() {
   // signed velocity. Hoisted above the tide hook so a gate's companion tide
   // port (companionOf) can ride the otherwise-idle useChsTide call below.
   const currentGate = isChsCurrent(station) ? station : null;
+  // A bundled NOAA current station: predicts synchronously, like a bundled
+  // tide station, but has no companion tide port to pair with (spec's
+  // deferred pairing) — `companion` below stays gate-only.
+  const noaaCurrent = isNoaaCurrent(station) ? station : null;
   const companion = currentGate ? companionOf(currentGate) : null;
   // Two engines, one shape (see useChsTide): a bundled station predicts
   // synchronously; a CHS port fetches. When a gate is viewed this hook — which
@@ -213,7 +225,9 @@ export function App() {
   const chsStation = isChs(station) && !isChsCurrent(station) ? station : companion;
   const chs = useChsTide(chsStation, now);
   const noaaState = useMemo(
-    () => (isChs(station) ? null : predict(station, now)),
+    // isNoaaCurrent: a current station has no height prediction to make —
+    // this guard only keeps predict() from ever seeing one.
+    () => (isChs(station) || isNoaaCurrent(station) ? null : predict(station, now)),
     [station, now],
   );
   // The hook's `state` carries the fetched day's extremes/timeline (day-based,
@@ -231,9 +245,17 @@ export function App() {
   // Same rules-of-hooks discipline — called every render, idle (`null`)
   // unless the viewed station is a gate.
   const chsCur = useChsCurrent(currentGate, now);
+  // Same rules as `noaaState` above: a bundled current station predicts
+  // synchronously (the currents twin of `predict`), a CHS gate's reading
+  // arrives from the online adapter and gets re-anchored to the ticking now.
   const currentState = useMemo(
-    () => (chsCur.state ? withNowCurrent(chsCur.state, now) : null),
-    [chsCur.state, now],
+    () =>
+      noaaCurrent
+        ? noaaCurrentState(noaaCurrent, now)
+        : chsCur.state
+          ? withNowCurrent(chsCur.state, now)
+          : null,
+    [noaaCurrent, chsCur.state, now],
   );
 
   // Paging a CHS day refetches; without a hold the whole view blanks to
@@ -242,7 +264,13 @@ export function App() {
   const tideHold = useRef<Held<TideState> | null>(null);
   const curHold = useRef<Held<CurrentState> | null>(null);
   const tideView = heldWhileLoading(tideHold, state, now, station.id, status === "loading");
-  const curView = heldWhileLoading(curHold, currentState, now, station.id, chsCur.status === "loading");
+  const curView = heldWhileLoading(
+    curHold,
+    currentState,
+    now,
+    station.id,
+    noaaCurrent ? false : chsCur.status === "loading",
+  );
 
   /**
    * The hero's distance and quality must describe the same thing the chooser
@@ -261,11 +289,15 @@ export function App() {
     }
     return match ? { km: match.distanceKm, quality: match.quality } : null;
   }, [live.place, match]);
-  // The display identity for the viewed station: a CHS port already carries its
-  // own name/context/position; a bundled station maps to its resolved record.
-  // The `!` is sound — every NOAA station has a 1:1 resolved entry.
+  // The display identity for the viewed station: a CHS port or a NOAA current
+  // station already carries its own name/context/position; a bundled tide
+  // station maps to its resolved record. The `!` is sound — every bundled
+  // tide station has a 1:1 resolved entry.
   const resolved: Candidate = useMemo(
-    () => (isChs(station) ? station : resolvedStations.find((s) => s.id === station.id)!),
+    () =>
+      isChs(station) || isNoaaCurrent(station)
+        ? station
+        : resolvedStations.find((s) => s.id === station.id)!,
     [station],
   );
 
@@ -492,7 +524,7 @@ export function App() {
               yet shows an honest line, never an empty chart or a dead spinner
               (spec §7c). A gate is the same discipline, third arm: never an
               empty chart, just the honest chs-signal/chs-loading copy. */}
-          {currentGate ? (
+          {currentGate || noaaCurrent ? (
             curView ? (
               <>
                 <p className="reading current">
@@ -579,7 +611,7 @@ export function App() {
           )}
         </section>
 
-        {currentGate ? (
+        {currentGate || noaaCurrent ? (
           curView && (
             <>
               <section className="panel chart-panel">
@@ -681,6 +713,13 @@ export function App() {
                 : "heights and times"}{" "}
               as published by CHS, not computed on your device. Not to be used for navigation (CHS
               clause 10).
+            </p>
+          ) : isNoaaCurrent(station) ? (
+            <p className="muted">
+              Current predictions for {resolved.name} are computed on your device from{" "}
+              <a href="https://tidesandcurrents.noaa.gov/">NOAA CO-OPS</a> harmonic
+              constituents (public domain) — no connection needed. Speeds are along the
+              channel axis at the station point.
             </p>
           ) : (
             <p className="muted">

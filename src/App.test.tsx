@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { createElement, act } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { createRoot, type Root } from "react-dom/client";
 import { heldWhileLoading, App } from "./App";
+import { resolvedNoaaCurrentStations } from "./noaaCurrents";
 
 // react-dom/client's createRoot renders outside React's own act() batching
 // unless told this is a test environment — mirrors SearchScreen.test.tsx.
@@ -51,6 +53,38 @@ describe("heldWhileLoading", () => {
     heldWhileLoading(ref, "victoria-day", t0, "chs-victoria", false); // seed
     // A different station is loading: must not flash Victoria's chart under it.
     expect(heldWhileLoading(ref, null, t1, "chs-nanaimo", true)).toBeNull();
+  });
+});
+
+// A bundled NOAA current station (Task 6): its detail view must render fully
+// offline — chart, schedule and provenance — with no loading state, since the
+// prediction is synchronous like a bundled tide station's. renderToStaticMarkup
+// (see OfflineManager.test.tsx) sidesteps useOfflineSync/useLocation's effects
+// (IndexedDB, geolocation, live network) entirely — this only needs the render
+// output, not the app's connectivity plumbing.
+describe("App: NOAA current station detail view", () => {
+  it("renders a NOAA current station offline: chart, events, provenance", () => {
+    const station = resolvedNoaaCurrentStations[0];
+    window.history.pushState({}, "", `/tide/${station.slug}`);
+    const html = renderToStaticMarkup(<App />);
+    // Scope to <main> — the always-mounted Settings dialog carries its own
+    // static "served live from the Canadian Hydrographic Service" BC-data
+    // disclosure regardless of which station is viewed, so a whole-document
+    // check for CHS copy would false-positive on unrelated chrome.
+    const main = html.slice(html.indexOf("<main"));
+    // Synchronous prediction: the current-reading hero renders directly, no
+    // "Loading Canadian current data…" placeholder.
+    expect(main).toContain(station.name);
+    expect(main).toMatch(/computed on your device/i);
+    expect(main).not.toContain("Canadian Hydrographic Service");
+    expect(main).not.toContain("Loading Canadian");
+    // The hero's phase word ("Flooding"/"Ebbing"/"Slack" via currentPhaseWord)
+    // also matches /Slack|Flood|Ebb/, so a bare whole-<main> regex check
+    // passes even if EventList's schedule silently renders empty — scope to
+    // the schedule's own markup (a pill class) so this actually guards the
+    // EventList routing fix, not just the hero reading.
+    const schedule = main.slice(main.indexOf('class="event-rows"'));
+    expect(schedule).toMatch(/pill (slack|flood|ebb)/);
   });
 });
 

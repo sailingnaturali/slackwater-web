@@ -1,5 +1,6 @@
 import type { Candidate } from "./place";
 import { isChsCurrent } from "./chsStations";
+import { isNoaaCurrent } from "./noaaCurrents";
 
 export type StyleLayer = { id: string; type: string; [k: string]: unknown };
 export type StyleLike = {
@@ -13,10 +14,8 @@ export function seascapeStyleUrl(unit: "ft" | "m"): string {
   return `https://tiles.openwaters.io/seascape/style.json?unit=${unit}`;
 }
 
-// Swap in the real isNoaaCurrent import once this branch is rebased onto the
-// finished noaa-currents work (that module doesn't exist yet here).
-const isCurrentKind = (s: Candidate) =>
-  "kind" in s && (s.kind === "chs" ? isChsCurrent(s) : s.kind === "noaa-current");
+// A pin is "current" for a CHS gate or a NOAA current station, "tide" otherwise.
+const isCurrentKind = (s: Candidate) => isChsCurrent(s) || isNoaaCurrent(s);
 
 /** Every station the app can name, as map pins. Identity only — no readings. */
 export function pinFeatures(stations: Candidate[]): GeoJSON.FeatureCollection {

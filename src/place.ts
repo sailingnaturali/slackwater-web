@@ -1,6 +1,7 @@
 import gazetteerData from "@sailingnaturali/station-corrections/data/gazetteer.json";
 import { resolvedStations, distanceKm, matchStation, type ResolvedStation, type Match } from "./tides";
 import { chsStations, chsCurrentStations, type ChsStation } from "./chsStations";
+import { resolvedNoaaCurrentStations, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
 import { getPlaceStation } from "./savedStations";
 
 /**
@@ -9,10 +10,15 @@ import { getPlaceStation } from "./savedStations";
  * constituents, so a CHS port — which has no harmonics — belongs in the pool.
  * Without it, Victoria snaps across Haro Strait to a NOAA station (spec §7).
  */
-export type Candidate = ResolvedStation | ChsStation;
+export type Candidate = ResolvedStation | ChsStation | ResolvedNoaaCurrentStation;
 
-/** The whole pool the app can name — bundled NOAA plus online CHS ports. */
-export const candidates: Candidate[] = [...resolvedStations, ...chsStations, ...chsCurrentStations];
+/** The whole pool the app can name — bundled NOAA tide, online CHS ports, and bundled NOAA current stations. */
+export const candidates: Candidate[] = [
+  ...resolvedStations,
+  ...chsStations,
+  ...chsCurrentStations,
+  ...resolvedNoaaCurrentStations,
+];
 
 export interface Place {
   name: string;

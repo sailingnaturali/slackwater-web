@@ -5,10 +5,12 @@
   "main": "index.js",
   "scripts": {
     "build:stations": "node scripts/build-stations.mjs",
-    "dev": "npm run build:stations && vite",
-    "build": "npm run build:stations && tsc && vite build",
+    "build:currents": "node scripts/build-currents.mjs",
+    "build:data": "npm run build:stations && npm run build:currents",
+    "dev": "npm run build:data && vite",
+    "build": "npm run build:data && tsc && vite build",
     "preview": "vite preview",
-    "test": "npm run build:stations && vitest run",
+    "test": "npm run build:data && vitest run",
     "smoke": "npm run build && node scripts/smoke.mjs"
   },
   "repository": {
@@ -37,6 +39,7 @@
   },
   "devDependencies": {
     "@neaps/tide-database": "^0.8.20260722",
+    "@sailingnaturali/current-stations": "^0.2.1",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

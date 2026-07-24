@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { nearestPlace, stationsNear, matchForPosition, locateStation } from "./place";
+import { nearestPlace, stationsNear, matchForPosition, locateStation, candidates } from "./place";
 import { setPlaceStation } from "./savedStations";
+import { isNoaaCurrent } from "./noaaCurrents";
 
 const victoria = { latitude: 48.4284, longitude: -123.3656 };
 const seattle = { latitude: 47.6062, longitude: -122.3321 };
@@ -72,4 +73,8 @@ describe("stationsNear", () => {
     expect(near.length).toBeGreaterThan(0);
     expect(near.length).toBeLessThanOrEqual(3);
   });
+});
+
+it("the candidate pool includes bundled NOAA current stations", () => {
+  expect(candidates.some((s) => isNoaaCurrent(s))).toBe(true);
 });
