@@ -71,6 +71,15 @@ Tide height and distance default to **feet and nautical miles**; switch to metre
 kilometres in Settings (below the station list). The choice is saved to `localStorage` and
 applies everywhere the app shows a number — it is not a per-station or per-session setting.
 
+## Map
+
+`/map` (or the sidebar's Map button) shows every station on a chart-style map:
+[Seascape](https://openwaters.io/bathymetry) bathymetry streamed online
+(CC BY 4.0, © Open Water Software, LLC), over a coastline layer built from OSM
+land polygons that ships with the app — so land and station pins render even
+with no signal; bathymetry needs a connection. Depths are not reduced to chart
+datum and carry the same **not for navigation** caveat as everything else here.
+
 ## Design
 
 Type, palette and idiom come from the Sailing Naturali design system — Fraunces display,

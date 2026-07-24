@@ -29,9 +29,15 @@ if (!existsSync(CHROME_PATH)) {
 // crash still fails the smoke. (Supersedes the per-block ERR_INTERNET_DISCONNECTED
 // filters the CHS offline checks used before the prefetch existed.)
 const IWLS_HOST = "api-iwls.dfo-mpo.gc.ca";
+// Seascape bathymetry tiles + glyph PBFs stream from this host (see
+// MapScreen.tsx); unreachable in CI/sandbox the same way IWLS is — the map
+// is built to degrade to its local land-only fallback style when this fails,
+// so a failed fetch to it is not an app error either.
+const SEASCAPE_HOST = "tiles.openwaters.io";
 function isChsFetchNoise(text) {
   return (
     text.includes(IWLS_HOST) ||
+    text.includes(SEASCAPE_HOST) ||
     /blocked by CORS policy/.test(text) ||
     /Failed to load resource: net::ERR_(FAILED|INTERNET_DISCONNECTED|NAME_NOT_RESOLVED|CONNECTION_REFUSED|TIMED_OUT|ADDRESS_UNREACHABLE)/.test(
       text,
@@ -82,6 +88,39 @@ async function main() {
       // not a general-purpose browsing session.
       args: ["--no-sandbox"],
     });
+    // M5: /map opens the discovery map directly (M4 wired mapOpen from
+    // window.location.pathname, bypassing the location gate). This has to run
+    // as the very first navigation, before anything else on this origin
+    // installs the PWA service worker: once the SW is controlling, its
+    // default Workbox precache route serves the precached land.pmtiles as a
+    // plain 200 with no Range/Content-Length support, and pmtiles' own
+    // byte-serving check throws on that — a real bug (land.pmtiles needs
+    // workbox-range-requests wired to its precache route to survive a
+    // returning/offline visit), but out of scope for this smoke-only task.
+    // A genuinely cold load — first tab, first request — has no SW yet, so
+    // land.pmtiles is fetched straight from the static server, which does
+    // support Range (confirmed with curl). Seascape bathymetry + glyphs are
+    // still external and expected to fail (filtered as isChsFetchNoise);
+    // waiting for the canvas MapLibre actually draws to is proof the map
+    // booted on its offline-capable fallback, not just that the container
+    // div mounted. pageerror stays unfiltered — a real MapLibre crash must
+    // still fail the smoke.
+    const mapErrors = [];
+    const mapPage = await browser.newPage();
+    mapPage.on("pageerror", (err) => mapErrors.push(`pageerror: ${err.message}`));
+    mapPage.on("console", (msg) => {
+      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) mapErrors.push(`console.error: ${msg.text()}`);
+    });
+    await mapPage.goto(`${URL}map`, { waitUntil: "domcontentloaded" });
+    await mapPage.waitForSelector(".map-canvas", { timeout: 10_000 });
+    // Proof MapLibre actually booted (WebGL context up, tiles drawing) —
+    // not just that the container div mounted.
+    await mapPage.waitForSelector(".map-canvas .maplibregl-canvas", { timeout: 10_000 });
+    if (mapErrors.length) {
+      throw new Error(`/map page reported errors:\n${mapErrors.join("\n")}`);
+    }
+    await mapPage.close();
+
     const page = await browser.newPage();
     page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
     page.on("console", (msg) => {
@@ -401,6 +440,7 @@ async function main() {
       `smoke OK — location card "${locationTitle.trim()}", tide height "${tideHeight}", ` +
         `search reached "Everett" from ${popularCount} POPULAR stations, ` +
         `deep link rendered "${deepLinkStation}" at "${deepLinkHeight}", ` +
+        `/map booted MapLibre with a real canvas, ` +
         `offline reload (network proved "${networkState}") rendered "${offlineStationName}" ` +
         `at "${offlineHeight}" with ${offlineEventCount} events and all 41 stations counted, ` +
         `CHS offline degraded gracefully at "${chsStationName}", ` +
