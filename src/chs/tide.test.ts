@@ -257,6 +257,28 @@ it("spans the whole local day however late `now` is (chart domain, mirrors predi
   expect(await daySpanHours(night)).toBeGreaterThan(23);
 });
 
+it("caches every whole interior day of the fetched week, so an adjacent day within it doesn't refetch (issue #7)", async () => {
+  const fetchFn = fetchFixtures();
+  const cache = memoryCache();
+  const station = victoriaStation();
+
+  // First load fetches a full padded week (from ≈ now-54h, spanning 7 days) —
+  // one request per series. That single week already contains several days
+  // beyond now1's own ±30h needed days.
+  const now1 = new Date("2026-07-18T12:00:00Z");
+  await chsTideDay(station, now1, { cache, fetchFn, stationList: stationList as IwlsStationMeta[] });
+  const afterFirst = (fetchFn as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
+  expect(afterFirst).toBe(2); // hilo + wlp, one wide request each
+
+  // now2 is two days ahead — its needed days are whole interior days of that
+  // same already-fetched week. It must be an all-cache HIT, not a re-fetch of
+  // the identical week. (Before #7 only now1's ±30h days were persisted, so the
+  // wide fetch's extra interior days were discarded and this refetched.)
+  const now2 = new Date("2026-07-20T12:00:00Z");
+  await chsTideDay(station, now2, { cache, fetchFn, stationList: stationList as IwlsStationMeta[] });
+  expect((fetchFn as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(afterFirst);
+});
+
 it("never caches a fetch-boundary day that the fetch only partially covers (bug 3)", async () => {
   const fetchFn = fetchFixtures();
   const cache = memoryCache();

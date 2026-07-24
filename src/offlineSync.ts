@@ -18,15 +18,22 @@ export interface SyncSnapshot {
 }
 export type Loader = (station: ChsStation, now: Date) => Promise<unknown>;
 
-// 7 days of offline runway. The IWLS 30/min cap means a full cold prefetch of
-// ~30 stations takes several minutes — that's acceptable (it's background, the
-// user stays online for it), and stations sync closest-first (see prioritize)
-// so the ones they'll actually use are ready long before the far ones.
+// 7 days of offline runway. Each loader call fetches a full padded week per
+// series and now caches every whole day of it (see seriesForWindow, issue #7),
+// so the first anchor populates most of the horizon in one request pair and the
+// later overlapping anchors are almost all cache hits — a cold prefetch of ~30
+// stations costs roughly two request pairs per station, well under the IWLS
+// 30/min cap. Stations sync closest-first (see prioritize) so the ones they'll
+// actually use are ready long before the far ones.
 export const HORIZON_DAYS = 7;
 const STEP_DAYS = 2;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Anchor times tiling the horizon; each loader call windows ±30h, so 2-day steps overlap. */
+// Anchor times tiling the horizon. Each loader call windows ±30h, so 2-day steps
+// overlap: kept deliberately tight so that even if a week-wide fetch's interior
+// reach falls short at a DST/timezone boundary, the next anchor backfills the gap
+// rather than leaving an uncached hole. The overlap is cheap now — anchors past
+// the first mostly resolve straight from cache.
 export function horizonAnchors(now: Date): Date[] {
   const out: Date[] = [];
   for (let d = 0; d < HORIZON_DAYS; d += STEP_DAYS) out.push(new Date(now.getTime() + d * DAY_MS));
