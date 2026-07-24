@@ -88,7 +88,12 @@ export const resolvedNoaaCurrentStations: ResolvedNoaaCurrentStation[] =
     return {
       ...station,
       name: r.name,
-      context: r.context,
+      // NOAA names a station by its offset from a landmark ("Point Colville,
+      // 1.4 nm east of"); station-corrections peels the offset into `context`,
+      // leaving a dangling "of" that reads cut off under the landmark header.
+      // Drop it — the landmark is already the header above. Slug derivation ran
+      // on the original `r.context` above, so URLs are unchanged.
+      context: r.context.replace(/ of$/, ""),
       slug,
       aliases: r.aliases,
       latitude: r.latitude,
