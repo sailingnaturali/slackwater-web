@@ -1,0 +1,86 @@
+{
+ "version": 8,
+ "name": "Open Waters Seascape",
+ "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+ "sources": {
+  "osm": {
+   "type": "raster",
+   "tiles": [
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+   ],
+   "tileSize": 256,
+   "attribution": "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>"
+  },
+  "seascape-dem": {
+   "type": "raster-dem",
+   "url": "https://tiles.openwaters.io/seascape/raster.json",
+   "tileSize": 512,
+   "encoding": "terrarium"
+  },
+  "seascape-vector": {
+   "type": "vector",
+   "url": "https://tiles.openwaters.io/seascape/vector.json"
+  },
+  "seascape-coverage": {
+   "type": "vector",
+   "url": "https://tiles.openwaters.io/seascape/coverage.json"
+  }
+ },
+ "layers": [
+  {
+   "id": "osm-base",
+   "type": "raster",
+   "source": "osm"
+  },
+  {
+   "id": "depth-shading",
+   "type": "color-relief",
+   "source": "seascape-dem"
+  },
+  {
+   "id": "depth-areas",
+   "type": "fill",
+   "source": "seascape-vector"
+  },
+  {
+   "id": "hillshade",
+   "type": "hillshade",
+   "source": "seascape-dem"
+  },
+  {
+   "id": "contour-lines",
+   "type": "line",
+   "source": "seascape-vector"
+  },
+  {
+   "id": "contour-labels",
+   "type": "symbol",
+   "source": "seascape-vector"
+  },
+  {
+   "id": "soundings",
+   "type": "symbol",
+   "source": "seascape-vector"
+  },
+  {
+   "id": "source-fill",
+   "type": "fill",
+   "source": "seascape-coverage"
+  },
+  {
+   "id": "source-highlight",
+   "type": "fill",
+   "source": "seascape-coverage"
+  },
+  {
+   "id": "source-outline",
+   "type": "line",
+   "source": "seascape-coverage"
+  },
+  {
+   "id": "source-labels",
+   "type": "symbol",
+   "source": "seascape-coverage"
+  }
+ ]
+}

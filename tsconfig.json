@@ -9,7 +9,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["vite/client", "vite-plugin-pwa/client"]
+    "types": ["vite/client", "vite-plugin-pwa/client", "geojson"]
   },
   "include": ["src", "vite.config.ts"]
 }
