@@ -64,14 +64,19 @@ export async function seriesForWindow(
     if (bucket) bucket.push(s);
     else buckets.set(d, [s]);
   }
-  // Cache only `days` — the local days this call actually needs — not every
-  // bucket the raw response happens to touch. `from`/`to` are padded a full day
-  // beyond `start`/`end` on each side (see above), so every day in `days` is
-  // guaranteed to lie strictly inside the fetch window and be whole. The days
-  // at the fetch's own edges (`from`'s day and `to`'s day) are NOT in `days`
-  // and are only ever partially covered by this request — caching them under
-  // their full-day key would let a later call reuse an incomplete day forever.
-  for (const d of days) {
+  // Cache every WHOLE day this one week-wide fetch covers, not just the `days`
+  // this call needed. The request already paid for ~6 interior days; persisting
+  // all of them lets a later load — the offline prefetch stepping the horizon,
+  // or the user scrubbing forward — hit cache instead of re-fetching the very
+  // same week (issue #7). Skip only the two partial edge days: the local day
+  // holding `from` and the one holding `to` are clipped by the fetch cutoff, and
+  // caching a partial day under its full-day key would let a later call reuse an
+  // incomplete day forever (guarded by tide.test.ts "never caches a fetch-boundary
+  // day"). `days` are padded strictly interior, so unioning them in only adds the
+  // known-empty mark for a needed day that has no samples at all.
+  const edge = new Set([localDay(from, timezone), localDay(to, timezone)]);
+  const wholeDays = new Set([...days, ...buckets.keys()].filter((d) => !edge.has(d)));
+  for (const d of wholeDays) {
     await cache.set(dayKey(stationId, series, d), buckets.get(d) ?? []);
   }
   return days.flatMap((d) => buckets.get(d) ?? []).filter(inRange(start, end));
