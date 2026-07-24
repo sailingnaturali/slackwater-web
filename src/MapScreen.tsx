@@ -31,10 +31,18 @@ export default function MapScreen({
   onClose: () => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  // onSelect is an inline prop that changes identity every parent re-render
+  // (30s poll); read the latest via ref instead of putting it in the mount
+  // effect's deps, which would rebuild the map on every parent tick.
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
 
   useEffect(() => {
     if (!container.current) return;
     ensureProtocol();
+    // stations is the stable candidates pool (module-level import in
+    // practice) — captured here, not a dep, so it can't trigger a remount.
     const pins = pinFeatures(stations);
     const landUrl = `pmtiles://${new URL("/land.pmtiles", window.location.origin)}`;
     const selected = stations.find((s) => s.id === selectedId);
@@ -44,18 +52,22 @@ export default function MapScreen({
       // Fallback first: land + pins render immediately (and are all an offline
       // user gets); Seascape replaces the style when its fetch lands. No error
       // banner when it doesn't — the map renders what it can reach (spec §4).
-      style: localFallbackStyle(landUrl, pins) as never,
+      style: localFallbackStyle(landUrl, pins) as unknown as maplibregl.StyleSpecification,
       center: selected ? [selected.longitude, selected.latitude] : SALISH_CENTER,
       zoom: selected ? 10 : 7,
       attributionControl: { compact: true },
     });
+    mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
 
     let gone = false;
+    // units is captured at mount for the initial Seascape fetch only; a
+    // units change while the map is open doesn't restyle it (rare — the map
+    // is a leaf view, closing and reopening picks up the new unit).
     fetch(seascapeStyleUrl(heightUnit(units)))
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((style: StyleLike) => {
-        if (!gone) map.setStyle(composeStyle(style, landUrl, pins) as never, { diff: false });
+        if (!gone) map.setStyle(composeStyle(style, landUrl, pins) as unknown as maplibregl.StyleSpecification, { diff: false });
       })
       .catch(() => {
         /* offline or upstream down: the fallback style is already up */
@@ -65,7 +77,7 @@ export default function MapScreen({
       const hit = map.queryRenderedFeatures(e.point, { layers: ["station-dots"] })[0];
       const slug = hit?.properties?.slug as string | undefined;
       const station = slug && stations.find((s) => s.slug === slug);
-      if (station) onSelect(station);
+      if (station) onSelectRef.current(station);
     };
     map.on("click", pick);
     map.on("mouseenter", "station-dots", () => (map.getCanvas().style.cursor = "pointer"));
@@ -73,9 +85,22 @@ export default function MapScreen({
 
     return () => {
       gone = true;
+      mapRef.current = null;
       map.remove();
     };
-  }, [stations, units, selectedId, onSelect]);
+    // Map is created once per mount: selectedId re-centers via the effect
+    // below (easeTo) instead of a remount, onSelect is read via onSelectRef,
+    // and stations is a stable pool (see comment above) — none of them
+    // should rebuild the WebGL context.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const s = stations.find((st) => st.id === selectedId);
+    if (s) map.easeTo({ center: [s.longitude, s.latitude] });
+  }, [selectedId]);
 
   return (
     <div className="map-screen">
