@@ -33,8 +33,9 @@ export function pinFeatures(stations: Candidate[]): GeoJSON.FeatureCollection {
   };
 }
 
-// Palette: navy paper / green from the app's design tokens (styles.css).
-const LAND_TONE = "#182a1f";
+// Land is a classic paper-chart cream over navy water; pins from the app's
+// leaf/steel design tokens.
+const LAND_TONE = "#f5ecd7";
 const WATER_TONE = "#0b1a2b";
 const PIN = { tide: "#7fb3d5", current: "#8fd0a0" };
 
