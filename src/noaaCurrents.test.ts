@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { toSlug } from "@sailingnaturali/station-corrections";
 import {
+  assignSlug,
   isNoaaCurrent,
   noaaCurrentState,
   resolvedNoaaCurrentStations,
@@ -88,5 +90,40 @@ describe("resolvedNoaaCurrentStations", () => {
       expect(seen.has(s.slug)).toBe(false);
       seen.add(s.slug);
     }
+  });
+});
+
+describe("assignSlug", () => {
+  it("pins the ladder order: exact slug, then -current, then the qualifier folded in", () => {
+    // Rung 2 (`${slug}-current`) is itself a single fixed string per base slug,
+    // so it resolves a *second* colliding entry same as rung 1 resolves the
+    // first — it takes a *third* same-slug entry to fall through to rung 3.
+    // Three entries is what actually exercises rungs 1, 2, and 3 in order.
+    const used = new Set<string>();
+    const a = assignSlug(
+      { slug: "alki-point", name: "Alki Point", context: "1 mile West of" },
+      "noaa/PUG1502",
+      used,
+    );
+    const b = assignSlug(
+      { slug: "alki-point", name: "Alki Point", context: "West of" },
+      "noaa/PUG1516",
+      used,
+    );
+    const c = assignSlug(
+      { slug: "alki-point", name: "Alki Point", context: "near the ferry dock" },
+      "noaa/PUG1599",
+      used,
+    );
+    expect(a).toBe("alki-point"); // rung 1: no collision yet
+    expect(b).toBe("alki-point-current"); // rung 2: rung 1 taken
+    expect(c).toBe(toSlug("Alki Point near the ferry dock")); // rung 3: rungs 1 and 2 taken
+    expect(new Set([a, b, c]).size).toBe(3);
+  });
+
+  it("falls all the way to the id-suffixed slug when even the qualifier collides", () => {
+    const used = new Set(["x", "x-current", toSlug("X same context")]);
+    const d = assignSlug({ slug: "x", name: "X", context: "same context" }, "noaa/PUG9999", used);
+    expect(d).toBe("x-pug9999");
   });
 });

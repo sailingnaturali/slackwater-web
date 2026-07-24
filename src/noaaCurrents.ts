@@ -1,5 +1,5 @@
 import { createTidePredictor } from "@neaps/tide-predictor";
-import { createBundledResolver } from "@sailingnaturali/station-corrections";
+import { createBundledResolver, toSlug } from "@sailingnaturali/station-corrections";
 import { withNowCurrent, type CurrentEvent, type CurrentState } from "./chs/current";
 import { resolvedStations } from "./tides";
 import { chsStations, chsCurrentStations } from "./chsStations";
@@ -35,21 +35,52 @@ const resolve = createBundledResolver();
 
 // Slugs already spoken for: a current station named after the same water as a
 // tide station (Friday Harbor has both) must not shadow the tide URL that's
-// already in shared links. "-current" is the deterministic tiebreak.
+// already in shared links.
 const takenSlugs = new Set([
   ...resolvedStations.map((s) => s.slug),
   ...chsStations.map((s) => s.slug),
   ...chsCurrentStations.map((s) => s.slug),
 ]);
 
+/**
+ * Deterministic local slug tiebreak. NOAA gives ~40 of the 133 bundled
+ * current stations a shared landmark name, distinguished only by the
+ * distance/bearing qualifier station-corrections splits into `context`
+ * rather than `slug` (e.g. "Alki Point, 1 mile West of" vs "Alki Point, West
+ * of" both resolve `name` to "Alki Point"). Rung 1 is the plain resolved
+ * slug; rung 2 is the existing cross-type tiebreak (a current station named
+ * after a tide station), now just the next rung instead of a special case;
+ * rungs 3 and 4 are local-only placeholders pulling NOAA's own qualifier (and
+ * failing that, its station id) back in to break the remaining ties — a
+ * future station-corrections curation pass may give these a nicer slug, at
+ * which point `formerSlugs` (see url.ts) is the redirect path off the old one.
+ */
+export function assignSlug(
+  r: { slug: string; name: string; context: string },
+  id: string,
+  used: Set<string>,
+): string {
+  const candidates = [
+    r.slug,
+    `${r.slug}-current`,
+    toSlug(`${r.name} ${r.context}`),
+    `${r.slug}-${id.replace("noaa/", "").toLowerCase()}`,
+  ];
+  const slug = candidates.find((c) => !used.has(c)) ?? candidates[candidates.length - 1];
+  used.add(slug);
+  return slug;
+}
+
 export const noaaCurrentStations: NoaaCurrentStation[] = (
   currentData as Omit<NoaaCurrentStation, "kind">[]
 ).map((s) => ({ kind: "noaa-current" as const, ...s }));
 
+const usedSlugs = new Set(takenSlugs);
+
 export const resolvedNoaaCurrentStations: ResolvedNoaaCurrentStation[] =
   noaaCurrentStations.map((station) => {
     const r = resolve(station);
-    const slug = takenSlugs.has(r.slug) ? `${r.slug}-current` : r.slug;
+    const slug = assignSlug(r, station.id, usedSlugs);
     return {
       ...station,
       name: r.name,
