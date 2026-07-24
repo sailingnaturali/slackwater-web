@@ -29,7 +29,8 @@ import { isNoaaCurrent, noaaCurrentState, type ResolvedNoaaCurrentStation } from
 import { useChsTide } from "./useChsTide";
 import { useChsCurrent } from "./useChsCurrent";
 import { withNow } from "./chs/tide";
-import { withNowCurrent, compass16, currentPhaseWord, type CurrentState } from "./chs/current";
+import { withNowCurrent, currentPhaseWord, type CurrentState } from "./chs/current";
+import { CompassArrow } from "./CompassArrow";
 import { CurrentChart } from "./CurrentChart";
 import { useLocation } from "./useLocation";
 import {
@@ -504,129 +505,140 @@ export function App() {
         </header>
 
         <section className="panel hero rise">
-          <div className="place">
-            <button
-              className={saved.starred.includes(resolved.slug) ? "place-star starred" : "place-star"}
-              onClick={() => toggleStar(resolved)}
-              aria-pressed={saved.starred.includes(resolved.slug)}
-              aria-label={
-                saved.starred.includes(resolved.slug) ? `Unstar ${resolved.name}` : `Star ${resolved.name}`
-              }
-            >
-              {saved.starred.includes(resolved.slug) ? "★" : "☆"}
-            </button>
-            <h1>{resolved.name}</h1>
-            {resolved.context && <p className="context">{resolved.context}</p>}
-            {heroMatch && (
-              <p className={`match ${heroMatch.quality}`}>
-                {formatDistance(heroMatch.km, units)} {distanceUnit(units)} away ·{" "}
-                {QUALITY_COPY[heroMatch.quality]}
-              </p>
-            )}
-            {match && live.place && (
-              <StationChooser
-                place={live.place.place}
-                current={live.place.station}
-                alternatives={live.place.alternatives}
-                units={units}
-                onChoose={(next) => {
-                  setStation(next);
-                  setT(null);
-                  history.replaceState(null, "", buildUrl(next, null));
-                }}
-              />
-            )}
+          <div className="hero-body">
+            <div className="place">
+              <h1>{resolved.name}</h1>
+              {resolved.context && <p className="context">{resolved.context}</p>}
+              {heroMatch && (
+                <p className={`match ${heroMatch.quality}`}>
+                  {formatDistance(heroMatch.km, units)} {distanceUnit(units)} away ·{" "}
+                  {QUALITY_COPY[heroMatch.quality]}
+                </p>
+              )}
+              {match && live.place && (
+                <StationChooser
+                  place={live.place.place}
+                  current={live.place.station}
+                  alternatives={live.place.alternatives}
+                  units={units}
+                  onChoose={(next) => {
+                    setStation(next);
+                    setT(null);
+                    history.replaceState(null, "", buildUrl(next, null));
+                  }}
+                />
+              )}
+
+              {/* Next-turn line under the name — same shape as the list card. */}
+              {currentGate || noaaCurrent
+                ? curView?.state.nextSlack &&
+                  untilSlack !== null && (
+                    <p className="next">
+                      Next slack at {time(curView.state.nextSlack.time)}
+                      <strong>
+                        {" "}
+                        · in {Math.floor(untilSlack / 60)}h {untilSlack % 60}m
+                      </strong>
+                      {curView.state.following && (
+                        <span className="muted">
+                          {" "}
+                          · then {curView.state.following.kind === "max-flood" ? "Flood" : "Ebb"}{" "}
+                          {/* peaks always carry a speed; derived gates have no `following` */}
+                          {formatSpeed(curView.state.following.speed!, speedUnit)}{" "}
+                          {speedUnitLabel(speedUnit)}
+                        </span>
+                      )}
+                    </p>
+                  )
+                : tideView?.state.next &&
+                  untilNext !== null && (
+                    <p className="next">
+                      Next {tideView.state.next.high ? "high" : "low"} of{" "}
+                      <strong>
+                        {formatHeight(tideView.state.next.level, units)} {heightUnit(units)}
+                      </strong>{" "}
+                      at {time(tideView.state.next.time)}
+                      <span className="muted">
+                        {" "}
+                        · in {Math.floor(untilNext / 60)}h {untilNext % 60}m
+                      </span>
+                    </p>
+                  )}
+            </div>
+
+            {/* Right rail: star up top, the compact reading below it. */}
+            <div className="hero-aside">
+              <button
+                className={saved.starred.includes(resolved.slug) ? "place-star starred" : "place-star"}
+                onClick={() => toggleStar(resolved)}
+                aria-pressed={saved.starred.includes(resolved.slug)}
+                aria-label={
+                  saved.starred.includes(resolved.slug) ? `Unstar ${resolved.name}` : `Star ${resolved.name}`
+                }
+              >
+                {saved.starred.includes(resolved.slug) ? "★" : "☆"}
+              </button>
+
+              {currentGate || noaaCurrent
+                ? curView &&
+                  // A derived gate (no CHS speed) or slack (no direction) has no
+                  // number to show — a compact phase pill instead, like the list.
+                  (curView.state.derived || curView.state.phase === "slack" ? (
+                    <span className={`phase-pill ${curView.state.phase}`}>
+                      {curView.state.derived ? currentPhaseWord(curView.state.phase) : "Slack"}
+                    </span>
+                  ) : (
+                    <div className="reading-compact">
+                      <span className="value">
+                        {formatSpeed(curView.state.speed, speedUnit)}
+                        <abbr>{speedUnitLabel(speedUnit)}</abbr>
+                      </span>
+                      <span className={`dir ${curView.state.phase}`}>
+                        {currentPhaseWord(curView.state.phase)}{" "}
+                        <CompassArrow deg={curView.state.setDegrees} />
+                      </span>
+                    </div>
+                  ))
+                : tideView && (
+                    <div className="reading-compact">
+                      <span className="value">
+                        {formatHeight(tideView.state.level, units)}
+                        <abbr>{heightUnit(units)}</abbr>
+                      </span>
+                      <span className={tideView.state.rising ? "dir rising" : "dir falling"}>
+                        {tideView.state.rising ? "▲ Rising" : "▼ Falling"}
+                      </span>
+                    </div>
+                  )}
+            </div>
           </div>
 
           {/* Provenance-blind once `state` exists. A CHS port with no reading
               yet shows an honest line, never an empty chart or a dead spinner
-              (spec §7c). A gate is the same discipline, third arm: never an
-              empty chart, just the honest chs-signal/chs-loading copy. */}
-          {currentGate || noaaCurrent ? (
-            curView ? (
-              <>
-                <p className="reading current">
-                  <span className={`dir ${curView.state.phase}`}>
-                    {curView.state.phase === "slack"
-                      ? "Slack"
-                      : curView.state.derived
-                        ? currentPhaseWord(curView.state.phase)
-                        : `${currentPhaseWord(curView.state.phase)} toward ${compass16(curView.state.setDegrees)}`}
-                  </span>
-                  {/* A derived gate has no CHS-predicted speed — never show a number. */}
-                  {!curView.state.derived && (
-                    <span className="value">
-                      {formatSpeed(curView.state.speed, speedUnit)}
-                      <abbr>{speedUnitLabel(speedUnit)}</abbr>
-                    </span>
-                  )}
+              (spec §7c) — full width, not squeezed into the reading rail. */}
+          {currentGate || noaaCurrent
+            ? !curView &&
+              (chsCur.status === "offline" ? (
+                <p className="reading chs-signal">
+                  <span className="dir">Canadian current data needs a moment of signal.</span>
+                  <span className="muted">Reconnect and {resolved.name} will load.</span>
                 </p>
-
-                {curView.state.nextSlack && untilSlack !== null && (
-                  <p className="next">
-                    Next slack at {time(curView.state.nextSlack.time)}
-                    <strong>
-                      {" "}
-                      · in {Math.floor(untilSlack / 60)}h {untilSlack % 60}m
-                    </strong>
-                    {curView.state.following && (
-                      <span className="muted">
-                        {" "}
-                        · then {curView.state.following.kind === "max-flood" ? "Flood" : "Ebb"}{" "}
-                        {/* peaks always carry a speed; derived gates have no `following` */}
-                        {formatSpeed(curView.state.following.speed!, speedUnit)}{" "}
-                        {speedUnitLabel(speedUnit)}
-                      </span>
-                    )}
-                  </p>
-                )}
-              </>
-            ) : chsCur.status === "offline" ? (
-              <p className="reading chs-signal">
-                <span className="dir">Canadian current data needs a moment of signal.</span>
-                <span className="muted">Reconnect and {resolved.name} will load.</span>
-              </p>
-            ) : (
-              <p className="reading chs-loading">
-                <span className="muted">Loading Canadian current data…</span>
-              </p>
-            )
-          ) : tideView ? (
-            <>
-              <p className="reading">
-                <span className={tideView.state.rising ? "dir rising" : "dir falling"}>
-                  {tideView.state.rising ? "▲ Rising" : "▼ Falling"}
-                </span>
-                <span className="value">
-                  {formatHeight(tideView.state.level, units)}
-                  <abbr>{heightUnit(units)}</abbr>
-                </span>
-              </p>
-
-              {tideView.state.next && untilNext !== null && (
-                <p className="next">
-                  Next {tideView.state.next.high ? "high" : "low"} of{" "}
-                  <strong>
-                    {formatHeight(tideView.state.next.level, units)} {heightUnit(units)}
-                  </strong>{" "}
-                  at {time(tideView.state.next.time)}
-                  <span className="muted">
-                    {" "}
-                    · in {Math.floor(untilNext / 60)}h {untilNext % 60}m
-                  </span>
+              ) : (
+                <p className="reading chs-loading">
+                  <span className="muted">Loading Canadian current data…</span>
                 </p>
-              )}
-            </>
-          ) : status === "offline" ? (
-            <p className="reading chs-signal">
-              <span className="dir">Canadian data needs a moment of signal.</span>
-              <span className="muted">Reconnect and Victoria will load.</span>
-            </p>
-          ) : (
-            <p className="reading chs-loading">
-              <span className="muted">Loading Canadian tide data…</span>
-            </p>
-          )}
+              ))
+            : !tideView &&
+              (status === "offline" ? (
+                <p className="reading chs-signal">
+                  <span className="dir">Canadian data needs a moment of signal.</span>
+                  <span className="muted">Reconnect and Victoria will load.</span>
+                </p>
+              ) : (
+                <p className="reading chs-loading">
+                  <span className="muted">Loading Canadian tide data…</span>
+                </p>
+              ))}
         </section>
 
         {currentGate || noaaCurrent ? (

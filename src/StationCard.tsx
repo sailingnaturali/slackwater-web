@@ -1,6 +1,7 @@
 import type { TideState } from "./tides";
 import type { Candidate } from "./place";
 import { type CurrentState } from "./chs/current";
+import { CompassArrow } from "./CompassArrow";
 import {
   distanceUnit,
   formatDistance,
@@ -119,9 +120,7 @@ export function StationCard({
               {formatSpeed(current.speed, speedUnit)}
               <abbr>{speedUnitLabel(speedUnit)}</abbr>
             </span>
-            <span className={current.phase === "flood" ? "dir rising" : "dir falling"}>
-              {current.phase === "flood" ? "▲" : "▼"}
-            </span>
+            <CompassArrow deg={current.setDegrees} className={current.phase} />
           </div>
         ))}
     </button>

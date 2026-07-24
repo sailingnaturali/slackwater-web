@@ -92,14 +92,16 @@ const flooding: CurrentState = {
 };
 
 describe("StationCard — currents", () => {
-  it("renders speed, a ▲ for flood, and the next slack time", () => {
+  it("renders speed, a compass arrow toward the set, and the next slack time", () => {
     const html = renderToStaticMarkup(
       <StationCard station={gate} current={flooding} units="metric" onSelect={() => {}} />,
     );
     expect(html).toContain("Slack ·");
     expect(html).toMatch(/\d{1,2}:\d{2} (AM|PM)/);
     expect(html).toContain("2.1"); // speed in knots
-    expect(html).toContain("dir rising"); // ▲ for flood
+    expect(html).toContain("compass-arrow flood"); // arrow, tinted like a flood
+    expect(html).toContain("rotate(45deg)"); // pointing NE, toward the set
+    expect(html).toContain('aria-label="toward NE"');
   });
 
   it("tags the phase in a pill and shows no arrow at slack", () => {

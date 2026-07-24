@@ -258,14 +258,29 @@ button.ghost:hover { border-color: var(--sn-paper); }
 
 /* -------------------------------------------------------------------- hero */
 
-.place { position: relative; }
-.place h1 { font-size: clamp(1.6rem, 4.5vw, 2.15rem); padding-right: 3rem; }
+/* Name on the left, the star + compact reading stacked on the right — the
+   same shape as a list card, so the detail header never drifts from it. */
+.hero-body { display: flex; align-items: flex-start; gap: 1rem; }
+.hero-aside {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+.reading-compact {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  text-align: right;
+}
+
+.place { position: relative; flex: 1 1 auto; min-width: 0; }
+.place h1 { font-size: clamp(1.6rem, 4.5vw, 2.15rem); }
 .place .context { color: var(--ink-faint); margin: 0.35rem 0 0; font-size: 0.95rem; }
 /* Favourite toggle, upper-right of the detail header (moved off the list cards). */
 .place-star {
-  position: absolute;
-  top: 0;
-  right: 0;
   width: 2.6rem;
   height: 2.6rem;
   border: 1px solid var(--hairline);
@@ -343,20 +358,26 @@ button.ghost:hover { border-color: var(--sn-paper); }
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
-.dir.rising { color: var(--rising); }
-.dir.falling { color: var(--falling); }
+.dir.rising, .dir.flood { color: var(--rising); }
+.dir.falling, .dir.ebb { color: var(--falling); }
 
-/* The one number the app exists to show, in the display serif. */
+/* Arrow pointing toward the current's set — inherits the flood/ebb colour. */
+.compass-arrow { display: inline-block; line-height: 1; font-size: 1.15rem; }
+.compass-arrow.flood { color: var(--rising); }
+.compass-arrow.ebb { color: var(--falling); }
+
+/* The one number the app exists to show, in the display serif. Compact now
+   that it sits in the right rail beside the name, not stranded on its own row. */
 .value {
   font-family: var(--font-display);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(3.2rem, 14vw, 4.75rem);
-  line-height: 0.95;
-  letter-spacing: -0.035em;
+  font-size: clamp(1.9rem, 7vw, 2.6rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
-.next { margin: 0; color: var(--ink-soft); }
+.next { margin: 0.75rem 0 0; color: var(--ink-soft); }
 .muted { color: var(--ink-faint); }
 
 /* ------------------------------------------------------------------- chart */
