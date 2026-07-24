@@ -930,3 +930,10 @@ footer .warn { color: var(--ink-soft); }
 }
 .offline-row-status { opacity: 0.7; font-size: 0.8rem; }
 .offline-foot { margin-top: 0.5rem; }
+
+/* Map view — full-screen like Search; the canvas takes everything between
+   the header and the disclaimer. */
+.map-screen { display: flex; flex-direction: column; height: 100dvh; }
+.map-head { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; }
+.map-canvas { flex: 1; min-height: 0; }
+.map-warn { padding: 0.5rem 1rem; margin: 0; }
