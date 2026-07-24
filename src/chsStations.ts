@@ -1,5 +1,4 @@
 import registry from "@sailingnaturali/station-corrections/data/registry.json" with { type: "json" };
-import type { Station } from "./tides";
 
 /**
  * A current gate CHS publishes no current prediction for: slack is derived
@@ -54,11 +53,18 @@ type RegistryEntry = {
   tideReference?: string;
 };
 
-/** A bundled NOAA station has no `kind`; only CHS ports carry the discriminant. */
-export const isChs = (s: Station | ChsStation): s is ChsStation =>
-  "kind" in s && s.kind === "chs";
+/**
+ * A bundled NOAA station has no `kind`; only CHS ports carry the discriminant.
+ * `unknown`, not `Station | ChsStation`: the candidate pool (`Candidate` in
+ * place.ts) also carries NOAA current stations, which live in noaaCurrents.ts
+ * and can't be named here without an import cycle (noaaCurrents.ts already
+ * imports this module) — this guard only ever reads `kind`/`series`, so the
+ * narrower runtime check still applies to any candidate.
+ */
+export const isChs = (s: unknown): s is ChsStation =>
+  typeof s === "object" && s !== null && "kind" in s && s.kind === "chs";
 
-export const isChsCurrent = (s: Station | ChsStation): s is ChsStation =>
+export const isChsCurrent = (s: unknown): s is ChsStation =>
   isChs(s) && s.series === "current";
 
 const entries = registry as Record<string, RegistryEntry>;

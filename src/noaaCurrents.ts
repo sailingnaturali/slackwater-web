@@ -28,8 +28,12 @@ export interface ResolvedNoaaCurrentStation extends NoaaCurrentStation {
   aliases: string[];
 }
 
-export const isNoaaCurrent = (s: { kind?: string }): s is ResolvedNoaaCurrentStation =>
-  s.kind === "noaa-current";
+// unknown, not { kind?: string }: TS treats an all-optional object type as
+// "weak" and rejects a union argument (Candidate) where one member — a plain
+// ResolvedStation — shares no property with it at all. unknown sidesteps that
+// false positive; the runtime check is unchanged.
+export const isNoaaCurrent = (s: unknown): s is ResolvedNoaaCurrentStation =>
+  typeof s === "object" && s !== null && "kind" in s && s.kind === "noaa-current";
 
 const resolve = createBundledResolver();
 

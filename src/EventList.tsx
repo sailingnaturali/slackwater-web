@@ -9,6 +9,7 @@ import {
   type TideState,
 } from "./tides";
 import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
+import { isNoaaCurrent, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
 import type { CurrentState } from "./chs/current";
 import { formatHeight, formatSpeed, heightUnit, speedUnitLabel, type SpeedUnit, type Units } from "./units";
 
@@ -61,8 +62,11 @@ export function EventList({
 }: {
   // Full station for the bundled path (paging recomputes from constituents);
   // a CHS port carries no harmonics, so its `state` is passed in and the day's
-  // turns are read off that instead.
-  station: Station | ChsStation;
+  // turns are read off that instead. A NOAA current station never actually
+  // reaches this component yet (its detail view is Task 6's job — App.tsx's
+  // tideView/curView both stay null for one today), but the widened
+  // `Candidate` pool (Task 5) makes it a reachable type here regardless.
+  station: Station | ChsStation | ResolvedNoaaCurrentStation;
   // The shared scrub instant: the day the chart and hero are on. Paging moves
   // it (via onPageDay) rather than tracking a private offset, so this list and
   // the scrubber viz can never drift onto different days.
@@ -98,6 +102,10 @@ export function EventList({
       return [...currents, ...tideTurns].sort((a, b) => a.time.getTime() - b.time.getTime());
     }
     if (isChs(station)) return state ? dayEventsFromState(state, station, day) : [];
+    // Unreached today (see the station prop's doc comment) — dayEvents needs
+    // real height constituents, which a current station's velocity harmonics
+    // aren't.
+    if (isNoaaCurrent(station)) return [];
     return dayEvents(station, day);
   }, [station, day, state, currentState]);
   const nearest = useMemo(() => nearestEvent(events, now), [events, now]);

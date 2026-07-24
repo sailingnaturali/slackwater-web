@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { distanceKm, predict, type Match, type ResolvedStation } from "./tides";
-import { isChs, isChsCurrent, companionOf, type ChsStation } from "./chsStations";
+import { distanceKm, predict, type Match } from "./tides";
+import { isChs, isChsCurrent, companionOf } from "./chsStations";
+import { isNoaaCurrent } from "./noaaCurrents";
 import { withNowCurrent } from "./chs/current";
 import { withNow } from "./chs/tide";
 import { useChsCurrent } from "./useChsCurrent";
@@ -59,8 +60,10 @@ function GroupCard({
       station={station}
       km={km ?? undefined}
       // A CHS station (gate's companion, or a tide port's own) shows its loaded
-      // tide; a bundled NOAA station predicts synchronously.
-      state={isChs(station) ? tide : predict(station, now)}
+      // tide; a bundled NOAA station predicts synchronously. A NOAA current
+      // station has no height prediction to make (Task 7's job — this guard
+      // only keeps predict() from ever seeing one).
+      state={isChs(station) ? tide : isNoaaCurrent(station) ? undefined : predict(station, now)}
       current={current}
       units={units}
       speedUnit={speedUnit}
@@ -71,8 +74,8 @@ function GroupCard({
 }
 
 export interface LocatedStation {
-  /** Union: the located station can be a CHS port (e.g. Victoria). */
-  station: ResolvedStation | ChsStation;
+  /** Union: the located station can be a CHS port (e.g. Victoria) or a NOAA current station. */
+  station: Candidate;
   match: Match;
 }
 
@@ -133,7 +136,7 @@ export function StationList({
   units: Units;
   speedUnit?: SpeedUnit;
   now: Date;
-  onSelect: (station: ResolvedStation | ChsStation) => void;
+  onSelect: (station: Candidate) => void;
   onRequestLocation?: () => void;
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());

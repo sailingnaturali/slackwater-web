@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { parseUrl, buildUrl } from "./url";
 import { resolvedStations } from "./tides";
+import { resolvedNoaaCurrentStations } from "./noaaCurrents";
+import { candidates } from "./place";
 
 const parse = (p: string) => parseUrl(p, resolvedStations);
 const everett = resolvedStations.find((s) => s.slug === "everett")!;
@@ -63,4 +65,12 @@ describe("buildUrl", () => {
     const url = buildUrl(everett, new Date("2026-01-15T20:00:00Z"));
     expect(url).toBe("/tide/everett/2026-01-15T12:00-08:00");
   });
+});
+
+it("routes a NOAA current station by slug and by provider id", () => {
+  const station = resolvedNoaaCurrentStations[0];
+  expect(parseUrl(`/tide/${station.slug}`, candidates)?.station.id).toBe(station.id);
+  const byId = parseUrl(`/tide/${station.id.replace(/\//g, "-")}`, candidates);
+  expect(byId?.station.id).toBe(station.id);
+  expect(byId?.canonical).toBe(false);
 });

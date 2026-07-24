@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { predict } from "./tides";
 import { isChs } from "./chsStations";
+import { isNoaaCurrent } from "./noaaCurrents";
 import type { Candidate } from "./place";
 import type { Units } from "./units";
 import { StationCard } from "./StationCard";
@@ -74,8 +75,9 @@ export function Search({
               <StationCard
                 station={station}
                 // CHS ports have no bundled harmonics — the result shows
-                // identity; the reading loads when the station is opened.
-                state={isChs(station) ? undefined : predict(station, now)}
+                // identity; the reading loads when the station is opened. A
+                // NOAA current station has no height prediction to make either.
+                state={isChs(station) || isNoaaCurrent(station) ? undefined : predict(station, now)}
                 units={units}
                 selected={station.id === selectedId}
                 onSelect={() => onSelect(station)}

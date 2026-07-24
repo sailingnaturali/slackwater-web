@@ -25,6 +25,7 @@ import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
 import { stationsNear, candidates, locateStation, type Candidate } from "./place";
 import { isChs, isChsCurrent, companionOf, type ChsStation } from "./chsStations";
+import { isNoaaCurrent, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
 import { useChsTide } from "./useChsTide";
 import { useChsCurrent } from "./useChsCurrent";
 import { withNow } from "./chs/tide";
@@ -52,6 +53,13 @@ import {
 
 /** Friday Harbor: central, well-measured, and inside the bundled coverage. */
 const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];
+
+/**
+ * The viewed station: `Candidate` plus plain `Station` for `FALLBACK`, which
+ * is unresolved (no slug/context/aliases) — it seeds `station` before a URL
+ * or gate match ever resolves one.
+ */
+type ViewStation = Station | ChsStation | ResolvedNoaaCurrentStation;
 
 const SEEN_GATE = "slackwater.gate";
 
@@ -95,7 +103,7 @@ export function App() {
   const [gated, setGated] = useState(() => !localStorage.getItem(SEEN_GATE));
   // Either a bundled NOAA station or a CHS port — the viewed station drives the
   // whole detail view, and CHS ports are named stations too (spec §7).
-  const [station, setStation] = useState<Station | ChsStation>(() => urlMatch?.station ?? FALLBACK);
+  const [station, setStation] = useState<ViewStation>(() => urlMatch?.station ?? FALLBACK);
   const [match, setMatch] = useState<Match | null>(null);
   const [saved, setSaved] = useState<Saved>(loadSaved);
   // Separate from `match`: CURRENT LOCATION keeps showing where you are even
@@ -206,7 +214,9 @@ export function App() {
   const chsStation = isChs(station) && !isChsCurrent(station) ? station : companion;
   const chs = useChsTide(chsStation, now);
   const noaaState = useMemo(
-    () => (isChs(station) ? null : predict(station, now)),
+    // isNoaaCurrent: a current station has no height prediction to make
+    // (Task 6's job — this guard only keeps predict() from ever seeing one).
+    () => (isChs(station) || isNoaaCurrent(station) ? null : predict(station, now)),
     [station, now],
   );
   // The hook's `state` carries the fetched day's extremes/timeline (day-based,
@@ -640,6 +650,18 @@ export function App() {
                 : "heights and times"}{" "}
               as published by CHS, not computed on your device. Not to be used for navigation (CHS
               clause 10).
+            </p>
+          ) : isNoaaCurrent(station) ? (
+            // tsc-forced (station.chartDatum below doesn't exist on a current
+            // station): copy is Task 6's, not new design — the rest of Task
+            // 6's detail-view rendering (CurrentChart/EventList) is unreached
+            // today since tideView/curView both stay null for one (see the
+            // noaaState guard above), left for that task.
+            <p className="muted">
+              Current predictions for {resolved.name} are computed on your device from{" "}
+              <a href="https://tidesandcurrents.noaa.gov/">NOAA CO-OPS</a> harmonic
+              constituents (public domain) — no connection needed. Speeds are along the
+              channel axis at the station point.
             </p>
           ) : (
             <p className="muted">
