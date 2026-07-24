@@ -57,9 +57,15 @@ describe("App: NOAA current station detail view", () => {
     // Synchronous prediction: the current-reading hero renders directly, no
     // "Loading Canadian current data…" placeholder.
     expect(main).toContain(station.name);
-    expect(main).toMatch(/Slack|Flood|Ebb/);
     expect(main).toMatch(/computed on your device/i);
     expect(main).not.toContain("Canadian Hydrographic Service");
     expect(main).not.toContain("Loading Canadian");
+    // The hero's phase word ("Flooding"/"Ebbing"/"Slack" via currentPhaseWord)
+    // also matches /Slack|Flood|Ebb/, so a bare whole-<main> regex check
+    // passes even if EventList's schedule silently renders empty — scope to
+    // the schedule's own markup (a pill class) so this actually guards the
+    // EventList routing fix, not just the hero reading.
+    const schedule = main.slice(main.indexOf('class="event-rows"'));
+    expect(schedule).toMatch(/pill (slack|flood|ebb)/);
   });
 });
