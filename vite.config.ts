@@ -35,7 +35,11 @@ export default defineConfig({
         // the self-hosted fonts (see README: no webfont request, on purpose)
         // otherwise fail with ERR_INTERNET_DISCONNECTED the moment the network
         // actually goes away, which the offline smoke check caught.
-        globPatterns: ["**/*.{js,css,html,svg,png,json,woff2}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,json,woff2,pmtiles}"],
+        // land.pmtiles is 4.78 MB; the default 2 MB cap would silently skip it
+        // and the map would have no land offline — the failure mode this line
+        // prevents.
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
       },
     }),
   ],
