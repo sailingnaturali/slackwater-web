@@ -10,9 +10,10 @@
  *    pass we care about turns out to be subordinate-only.
  * 2. Primary bin only (bundle key without "@") — one station, one prediction.
  * 3. Zero-amplitude constituents contribute nothing but bytes.
- *
- * The vendored file is already the Salish Sea box extract; geography is
- * asserted in src/currentsBundle.test.ts rather than re-filtered here.
+ * 4. Salish Sea geographic bounds (47–50.5°N, −125.5°–−122°W) — the extraction
+ *    tool pulls in out-of-bounds harmonic reference stations for subordinates
+ *    (e.g., SFB1201 San Francisco Bay Entrance is a reference for a Salish Sea
+ *    subordinate). Filter here to prevent them leaking into the bundle.
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
