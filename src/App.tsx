@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   matchStation,
   matchQuality,
@@ -52,6 +52,10 @@ import {
 
 /** Friday Harbor: central, well-measured, and inside the bundled coverage. */
 const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];
+
+// Lazy: keeps MapLibre (and its WASM/tile machinery) out of the entry chunk —
+// most visits never open the map.
+const MapScreen = lazy(() => import("./MapScreen"));
 
 const SEEN_GATE = "slackwater.gate";
 
@@ -123,6 +127,9 @@ export function App() {
   const now = t ?? liveNow;
   const [listOpen, setListOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // A cold load of /map (sidebar "Map" button, or a shared link) should open
+  // straight into the map, same deal as urlMatch below for a station link.
+  const [mapOpen, setMapOpen] = useState(() => window.location.pathname === "/map");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [offlineOpen, setOfflineOpen] = useState(false);
   const offline = useOfflineSync(origin);
@@ -278,11 +285,32 @@ export function App() {
   );
 
   // A shared link skips the explain-first screen, first visit or not — the
-  // whole point of a deep link is that it opens the station it names, not a
-  // gate standing in front of it. `gated` itself stays true underneath (not
-  // shown, but not resolved either), so `useLocation(!gated)` — disabled
-  // until the gate resolves — still never fires a silent permission prompt.
-  if (gated && !urlMatch) return <LocationGate onResolve={resolveGate} />;
+  // whole point of a deep link is that it opens the station (or the map) it
+  // names, not a gate standing in front of it. `gated` itself stays true
+  // underneath (not shown, but not resolved either), so `useLocation(!gated)`
+  // — disabled until the gate resolves — still never fires a silent
+  // permission prompt.
+  if (gated && !urlMatch && !mapOpen) return <LocationGate onResolve={resolveGate} />;
+
+  if (mapOpen) {
+    return (
+      <Suspense fallback={<div className="map-loading muted">Loading map…</div>}>
+        <MapScreen
+          stations={candidates}
+          units={units}
+          selectedId={station.id}
+          onSelect={(next) => {
+            choose(next); // choose() already replaces the URL with the station's
+            setMapOpen(false);
+          }}
+          onClose={() => {
+            setMapOpen(false);
+            history.replaceState(null, "", buildUrl(resolved, t));
+          }}
+        />
+      </Suspense>
+    );
+  }
 
   if (searchOpen) {
     return (
@@ -363,6 +391,16 @@ export function App() {
         </div>
         <button className="search-entry" onClick={() => setSearchOpen(true)}>
           <span aria-hidden="true">⌕</span> Search stations
+        </button>
+        <button
+          className="search-entry"
+          onClick={() => {
+            setMapOpen(true);
+            setListOpen(false);
+            history.replaceState(null, "", "/map");
+          }}
+        >
+          <span aria-hidden="true">◍</span> Map
         </button>
         <StationList
           located={located}

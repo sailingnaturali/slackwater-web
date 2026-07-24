@@ -1,5 +1,23 @@
-import { describe, it, expect } from "vitest";
-import { heldWhileLoading } from "./App";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { createElement, act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { heldWhileLoading, App } from "./App";
+
+// react-dom/client's createRoot renders outside React's own act() batching
+// unless told this is a test environment — mirrors SearchScreen.test.tsx.
+(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+// jsdom has no WebGL; MapScreen's own module test (MapScreen.test.tsx) covers
+// the maplibre wiring. Here we only need a stand-in that proves the lazy
+// chunk mounted and can signal back onClose.
+vi.mock("./MapScreen", () => ({
+  default: ({ onClose }: { onClose: () => void }) =>
+    createElement(
+      "div",
+      { "data-testid": "map-screen" },
+      createElement("button", { onClick: onClose }, "close-map"),
+    ),
+}));
 
 // The date-nav hold: paging a CHS day refetches, and without this the whole view
 // blanks to "Loading" for the fetch. heldWhileLoading keeps the previous day on
@@ -33,5 +51,29 @@ describe("heldWhileLoading", () => {
     heldWhileLoading(ref, "victoria-day", t0, "chs-victoria", false); // seed
     // A different station is loading: must not flash Victoria's chart under it.
     expect(heldWhileLoading(ref, null, t1, "chs-nanaimo", true)).toBeNull();
+  });
+});
+
+describe("App map route", () => {
+  let container: HTMLDivElement | null = null;
+  let root: Root | null = null;
+
+  afterEach(() => {
+    if (root) act(() => root!.unmount());
+    if (container) container.remove();
+    container = null;
+    root = null;
+    window.history.pushState({}, "", "/");
+  });
+
+  it("opens the map from the sidebar and deep-links at /map", async () => {
+    window.history.pushState({}, "", "/map");
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => {
+      root!.render(createElement(App));
+    });
+    expect(container.querySelector('[data-testid="map-screen"]')).not.toBeNull();
   });
 });
