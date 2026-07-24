@@ -1,7 +1,7 @@
 import gazetteerData from "@sailingnaturali/station-corrections/data/gazetteer.json";
 import { resolvedStations, distanceKm, matchStation, type ResolvedStation, type Match } from "./tides";
-import { chsStations, chsCurrentStations, type ChsStation } from "./chsStations";
-import { resolvedNoaaCurrentStations, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
+import { chsStations, chsCurrentStations, isChsCurrent, type ChsStation } from "./chsStations";
+import { isNoaaCurrent, resolvedNoaaCurrentStations, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
 import { getPlaceStation } from "./savedStations";
 
 /**
@@ -60,6 +60,9 @@ export function stationsNear(place: Place, limit: number): Candidate[] {
     .map((r) => r.station);
 }
 
+/** A station that reports current, not tide height — CHS gate or bundled NOAA. */
+const isCurrentStation = (s: Candidate) => isChsCurrent(s) || isNoaaCurrent(s);
+
 export interface PositionMatch {
   place: Place;
   station: Candidate;
@@ -96,7 +99,18 @@ export function matchForPosition(
     return { place, station: overrideStation, alternatives: withSelection, overridden: true };
   }
 
-  return { place, station: alternatives[0], alternatives, overridden: false };
+  // The automatic pick stays tide water: a current station answers "when is
+  // slack", not "how deep is it where I am", and currents outnumber tide
+  // stations 3:1 — nearest-of-everything would default much of the sound to a
+  // gate. A deliberate choice (override above) or the chooser can still land
+  // on one. The `!` is sound: the pool always contains tide stations.
+  const station =
+    alternatives.find((s) => !isCurrentStation(s)) ??
+    stationsNear(place, candidates.length).find((s) => !isCurrentStation(s))!;
+  const withPick = alternatives.some((s) => s.slug === station.slug)
+    ? alternatives
+    : [...alternatives, station].sort((a, b) => distanceKm(place, a) - distanceKm(place, b));
+  return { place, station, alternatives: withPick, overridden: false };
 }
 
 /**
