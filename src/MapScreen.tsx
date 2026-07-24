@@ -76,16 +76,8 @@ export default function MapScreen({
         /* offline or upstream down: the fallback style is already up */
       });
 
-    const pick = (e: maplibregl.MapMouseEvent) => {
-      const hit = map.queryRenderedFeatures(e.point, { layers: ["station-dots"] })[0];
-      const slug = hit?.properties?.slug as string | undefined;
-      const station = slug && stations.find((s) => s.slug === slug);
-      if (station) onSelectRef.current(station);
-    };
-    map.on("click", pick);
-
-    // Hover preview: the header card's identity + live reading, so you know a
-    // station before clicking in. One reused popup, repositioned per pin.
+    // The preview popup: the header card's identity + live reading, so you know
+    // a station before opening it. One reused popup, repositioned per pin.
     // units/speedUnit are captured at mount (like the Seascape fetch above).
     const popup = new maplibregl.Popup({
       closeButton: false,
@@ -93,19 +85,57 @@ export default function MapScreen({
       offset: 12,
       className: "map-popup",
     });
-    map.on("mouseenter", "station-dots", (e) => {
-      map.getCanvas().style.cursor = "pointer";
-      const f = e.features?.[0];
-      const slug = f?.properties?.slug as string | undefined;
-      const station = slug ? stations.find((s) => s.slug === slug) : undefined;
-      if (!f || !station) return;
-      const coords = (f.geometry as GeoJSON.Point).coordinates.slice(0, 2) as [number, number];
+    const showPreview = (station: Candidate, coords: [number, number]) => {
       popup.setLngLat(coords).setHTML(previewHtml(station, new Date(), units, speedUnit)).addTo(map);
+    };
+    const stationAt = (point: maplibregl.Point) => {
+      const hit = map.queryRenderedFeatures(point, { layers: ["station-dots"] })[0];
+      const slug = hit?.properties?.slug as string | undefined;
+      const station = slug ? stations.find((s) => s.slug === slug) : undefined;
+      if (!hit || !station) return null;
+      const coords = (hit.geometry as GeoJSON.Point).coordinates.slice(0, 2) as [number, number];
+      return { station, slug: slug!, coords };
+    };
+
+    // (hover: hover) is a mouse; (hover: none) is touch. Touch has no hover to
+    // preview with, so there the first tap on a pin previews it and a second tap
+    // on the same pin opens it — a tap on empty water dismisses the preview. A
+    // mouse previews on hover, so a click opens straight away.
+    const canHover = window.matchMedia("(hover: hover)").matches;
+    let activeSlug: string | null = null;
+
+    map.on("click", (e) => {
+      const at = stationAt(e.point);
+      if (!at) {
+        if (!canHover) {
+          popup.remove();
+          activeSlug = null;
+        }
+        return;
+      }
+      if (canHover || activeSlug === at.slug) {
+        onSelectRef.current(at.station);
+        return;
+      }
+      activeSlug = at.slug;
+      showPreview(at.station, at.coords);
     });
-    map.on("mouseleave", "station-dots", () => {
-      map.getCanvas().style.cursor = "";
-      popup.remove();
-    });
+
+    if (canHover) {
+      map.on("mouseenter", "station-dots", (e) => {
+        map.getCanvas().style.cursor = "pointer";
+        const f = e.features?.[0];
+        const slug = f?.properties?.slug as string | undefined;
+        const station = slug ? stations.find((s) => s.slug === slug) : undefined;
+        if (f && station) {
+          showPreview(station, (f.geometry as GeoJSON.Point).coordinates.slice(0, 2) as [number, number]);
+        }
+      });
+      map.on("mouseleave", "station-dots", () => {
+        map.getCanvas().style.cursor = "";
+        popup.remove();
+      });
+    }
 
     return () => {
       gone = true;
