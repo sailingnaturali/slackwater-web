@@ -25,7 +25,7 @@ import { StationChooser } from "./StationChooser";
 import { usePreferences } from "./usePreferences";
 import { stationsNear, candidates, locateStation, type Candidate } from "./place";
 import { isChs, isChsCurrent, companionOf, type ChsStation } from "./chsStations";
-import { isNoaaCurrent, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
+import { isNoaaCurrent, noaaCurrentState, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
 import { useChsTide } from "./useChsTide";
 import { useChsCurrent } from "./useChsCurrent";
 import { withNow } from "./chs/tide";
@@ -207,6 +207,10 @@ export function App() {
   // signed velocity. Hoisted above the tide hook so a gate's companion tide
   // port (companionOf) can ride the otherwise-idle useChsTide call below.
   const currentGate = isChsCurrent(station) ? station : null;
+  // A bundled NOAA current station: predicts synchronously, like a bundled
+  // tide station, but has no companion tide port to pair with (spec's
+  // deferred pairing) — `companion` below stays gate-only.
+  const noaaCurrent = isNoaaCurrent(station) ? station : null;
   const companion = currentGate ? companionOf(currentGate) : null;
   // Two engines, one shape (see useChsTide): a bundled station predicts
   // synchronously; a CHS port fetches. When a gate is viewed this hook — which
@@ -234,9 +238,17 @@ export function App() {
   // Same rules-of-hooks discipline — called every render, idle (`null`)
   // unless the viewed station is a gate.
   const chsCur = useChsCurrent(currentGate, now);
+  // Same rules as `noaaState` above: a bundled current station predicts
+  // synchronously (the currents twin of `predict`), a CHS gate's reading
+  // arrives from the online adapter and gets re-anchored to the ticking now.
   const currentState = useMemo(
-    () => (chsCur.state ? withNowCurrent(chsCur.state, now) : null),
-    [chsCur.state, now],
+    () =>
+      noaaCurrent
+        ? noaaCurrentState(noaaCurrent, now)
+        : chsCur.state
+          ? withNowCurrent(chsCur.state, now)
+          : null,
+    [noaaCurrent, chsCur.state, now],
   );
 
   // Paging a CHS day refetches; without a hold the whole view blanks to
@@ -245,7 +257,13 @@ export function App() {
   const tideHold = useRef<Held<TideState> | null>(null);
   const curHold = useRef<Held<CurrentState> | null>(null);
   const tideView = heldWhileLoading(tideHold, state, now, station.id, status === "loading");
-  const curView = heldWhileLoading(curHold, currentState, now, station.id, chsCur.status === "loading");
+  const curView = heldWhileLoading(
+    curHold,
+    currentState,
+    now,
+    station.id,
+    noaaCurrent ? false : chsCur.status === "loading",
+  );
 
   /**
    * The hero's distance and quality must describe the same thing the chooser
@@ -465,7 +483,7 @@ export function App() {
               yet shows an honest line, never an empty chart or a dead spinner
               (spec §7c). A gate is the same discipline, third arm: never an
               empty chart, just the honest chs-signal/chs-loading copy. */}
-          {currentGate ? (
+          {currentGate || noaaCurrent ? (
             curView ? (
               <>
                 <p className="reading current">
@@ -552,7 +570,7 @@ export function App() {
           )}
         </section>
 
-        {currentGate ? (
+        {currentGate || noaaCurrent ? (
           curView && (
             <>
               <section className="panel chart-panel">
@@ -656,9 +674,12 @@ export function App() {
               clause 10).
             </p>
           ) : isNoaaCurrent(station) ? (
-            // tsc-forced (station.chartDatum below doesn't exist on a current
-            // station); copy is Task 6's to author.
-            null
+            <p className="muted">
+              Current predictions for {resolved.name} are computed on your device from{" "}
+              <a href="https://tidesandcurrents.noaa.gov/">NOAA CO-OPS</a> harmonic
+              constituents (public domain) — no connection needed. Speeds are along the
+              channel axis at the station point.
+            </p>
           ) : (
             <p className="muted">
               Heights above {station.chartDatum}, times local to the station. {stations.length}{" "}
