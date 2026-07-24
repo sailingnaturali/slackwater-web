@@ -222,7 +222,7 @@ async function main() {
       throw new Error(`expected a location card title, got: ${JSON.stringify(locationTitle)}`);
     }
 
-    const tideHeight = await page.$eval(".reading .value", (el) => el.textContent);
+    const tideHeight = await page.$eval(".reading-compact .value", (el) => el.textContent);
     if (!/\d/.test(tideHeight ?? "")) throw new Error(`expected a tide height, got: ${JSON.stringify(tideHeight)}`);
 
     // This is the regression Task 5 exists to close: with location declined,
@@ -286,7 +286,7 @@ async function main() {
         `deep link /tide/everett/2026-07-20T14:35-07:00 expected Everett, got: ${JSON.stringify(deepLinkStation)}`,
       );
     }
-    const deepLinkHeight = await deepLinkPage.$eval(".reading .value", (el) => el.textContent);
+    const deepLinkHeight = await deepLinkPage.$eval(".reading-compact .value", (el) => el.textContent);
     if (!/\d/.test(deepLinkHeight ?? "")) {
       throw new Error(`deep link expected a tide height, got: ${JSON.stringify(deepLinkHeight)}`);
     }
@@ -349,7 +349,7 @@ async function main() {
     const offlineStationName = await offlinePage.$eval(".place h1", (el) => el.textContent);
     if (!offlineStationName) throw new Error("offline reload: no station name rendered");
 
-    const offlineHeight = await offlinePage.$eval(".reading .value", (el) => el.textContent);
+    const offlineHeight = await offlinePage.$eval(".reading-compact .value", (el) => el.textContent);
     if (!/\d/.test(offlineHeight ?? "")) {
       throw new Error(`offline reload expected a tide height, got: ${JSON.stringify(offlineHeight)}`);
     }
@@ -469,7 +469,7 @@ async function main() {
     if (noaaStationName !== "Friday Harbor") {
       throw new Error(`NOAA offline regression: expected Friday Harbor, got: ${JSON.stringify(noaaStationName)}`);
     }
-    const noaaHeight = await noaaPage.$eval(".reading .value", (el) => el.textContent);
+    const noaaHeight = await noaaPage.$eval(".reading-compact .value", (el) => el.textContent);
     if (!/\d/.test(noaaHeight ?? "")) {
       throw new Error(`NOAA offline regression: expected a tide height, got: ${JSON.stringify(noaaHeight)}`);
     }
