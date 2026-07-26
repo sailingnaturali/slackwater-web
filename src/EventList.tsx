@@ -11,6 +11,7 @@ import {
 import { isChs, isChsCurrent, type ChsStation } from "./chsStations";
 import { isNoaaCurrent, type ResolvedNoaaCurrentStation } from "./noaaCurrents";
 import type { CurrentState } from "./chs/current";
+import { CompassArrow } from "./CompassArrow";
 import { formatHeight, formatSpeed, heightUnit, speedUnitLabel, type SpeedUnit, type Units } from "./units";
 
 const DAY = 86_400_000;
@@ -146,10 +147,29 @@ export function EventList({
           const classes = ["event"];
           if (past) classes.push("past");
           if (event === nearest) classes.push("nearest");
+          // A flood/ebb turn on a real gate points a compass arrow at its set,
+          // like the hero and list cards. A derived gate has no bearing — keep
+          // its ▲/▼ glyph (currentState.derived, or a paired tide port's turns).
+          const bearing =
+            currentState && !currentState.derived
+              ? event.kind === "max-flood"
+                ? currentState.floodDirection
+                : event.kind === "max-ebb"
+                  ? currentState.ebbDirection
+                  : null
+              : null;
           return (
             <li key={event.time.toISOString() + event.kind} className={classes.join(" ")}>
               <button type="button" className="event-row" onClick={() => onScrub(event.time)}>
-                <span className={`pill ${pill.className}`}>{pill.label}</span>
+                <span className={`pill ${pill.className}`}>
+                  {bearing != null ? (
+                    <>
+                      <CompassArrow deg={bearing} /> {event.kind === "max-flood" ? "Flood" : "Ebb"}
+                    </>
+                  ) : (
+                    pill.label
+                  )}
+                </span>
                 <time dateTime={event.time.toISOString()}>
                   {event.time.toLocaleTimeString("en-CA", {
                     hour: "2-digit",

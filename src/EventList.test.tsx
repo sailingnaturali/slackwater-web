@@ -161,4 +161,43 @@ describe("EventList merges a gate's companion tide turns", () => {
     expect((text.match(/Rise/g) ?? []).length).toBe(1);
     expect((text.match(/Set/g) ?? []).length).toBe(1);
   });
+
+  it("points a compass arrow at the set on a real gate's flood/ebb rows", () => {
+    const realGate = { ...gate, id: "chs-active-pass", slug: "chs-active-pass", name: "Active Pass" };
+    const real = {
+      ...currentState,
+      derived: false,
+      events: [
+        { time: new Date("2026-07-20T16:00:00Z"), kind: "max-flood", speed: 6.2 },
+        { time: new Date("2026-07-20T19:30:00Z"), kind: "max-ebb", speed: 4.1 },
+      ],
+    } as unknown as CurrentState;
+    const now = new Date("2026-07-20T18:00:00Z");
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() => {
+      root!.render(
+        <EventList
+          station={realGate}
+          now={now}
+          today={now}
+          units="imperial"
+          currentState={real}
+          onPageDay={() => {}}
+          onToday={() => {}}
+          onScrub={() => {}}
+        />,
+      );
+    });
+    const html = container!.innerHTML;
+    // Flood arrow toward the flood direction (45° = NE), ebb toward 225° (SW).
+    expect(html).toContain('aria-label="toward NE"');
+    expect(html).toContain("rotate(45deg)");
+    expect(html).toContain('aria-label="toward SW"');
+    expect(html).toContain("rotate(225deg)");
+    // The old ▲/▼ glyphs are gone on a real gate.
+    expect(html).not.toContain("▲");
+    expect(html).not.toContain("▼");
+  });
 });

@@ -486,6 +486,9 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .event .pill.flood { background: var(--rising); }
 .event .pill.ebb { background: var(--falling); }
 .event .pill.slack { background: var(--ink); }
+/* Sized to the pill glyph, colour inherited from the pill text (navy on the
+   flood/ebb fill) — not the green/blue the standalone arrows carry. */
+.event .pill .compass-arrow { font-size: 0.85rem; vertical-align: -0.05em; }
 .event time,
 .event .height {
   font-family: var(--font-mono);
