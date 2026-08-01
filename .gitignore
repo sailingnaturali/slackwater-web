@@ -5,3 +5,4 @@ src/data/stations.json
 src/data/currents.json
 .DS_Store
 *.local
+.superpowers/
