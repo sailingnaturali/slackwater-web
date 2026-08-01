@@ -54,8 +54,25 @@ point — Brandon reads green as "go ahead", and for an app named Slackwater the
 waiting for is slack, not flood. Green now points at the thing the app is named after and at
 the feature that will be sold.
 
-**Map pins** take the same three state colours. Kind moves to the glyph (§3), so a pin's fill
-answers "what is the water doing there" and its shape answers "what kind of station is it."
+**Map pins** stop encoding kind in colour. Kind moves to pin *form*; colour is reserved for
+state as everywhere else.
+
+*Amended 2026-08-01 during planning.* The original wording — "map pins take the same three state
+colours" — is not implementable as written. `pinFeatures` (`mapStyle.ts:21`) carries identity
+only, and `pinReading` (`mapPopup.ts:33`) returns `null` for every CHS station because CHS
+readings are fetched online while bundled NOAA stations predict synchronously on device. In an
+offline-first app most Salish Sea pins therefore have no knowable state at draw time. The
+resolution keeps the rule intact rather than bending it:
+
+- **Form encodes kind, always:** filled pin = current station, hollow ring = tide station.
+- **Colour encodes state where state is known** (bundled NOAA, predicted synchronously).
+- **A neutral pin means "state unknown — tap it."** Absence of colour is honest, and it follows
+  from the rule rather than contradicting it.
+
+Pin form is filled-vs-hollow rather than the §3 wave/dome glyphs. Matching the glyphs exactly
+would need SDF icons registered via `map.addImage`, which is real work for a surface Brandon did
+not raise; filled-vs-hollow resolves the actual defect (kind occupying colour) in a few lines.
+Recorded as a deliberate ceiling, upgrade path noted in code.
 
 **`--accent` stays leaf green.** Links, focus rings and buttons keep it. A focus ring is not a
 reading and context disambiguates; inventing a second interactive hue to avoid a collision that
@@ -148,6 +165,14 @@ launch
  ├─ else last viewed?   → that station
  └─ else               → the list
 ```
+
+*Amended 2026-08-01 during planning: most of this already exists.* `useLocation` +
+`locateStation` (`App.tsx:194-212`) already swap in the nearest station once location resolves,
+and `resolveGate`'s declined branch (`App.tsx:228`) already opens the list. The only real gap is
+the **initial** station, which is a hardcoded `FALLBACK` — Friday Harbor (`App.tsx:56`,
+`App.tsx:135`) — rather than the last-viewed one. `savedStations.ts` already persists that as
+`saved.recent[0]` via `visit()` (`App.tsx:409`). So §4 is a change to one initialiser, not a
+navigation restructure.
 
 `LocationGate` (`App.tsx:343`) stays for the first-run permission ask, and deep links keep
 bypassing it. The gate becomes a one-time screen rather than a wall, because a denied prompt
