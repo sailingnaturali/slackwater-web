@@ -12,9 +12,10 @@ const MAX_AGE_MS = 2 * 365 * 24 * 60 * 60 * 1000;
 
 /**
  * `formerSlugs` isn't published by @sailingnaturali/station-corrections yet
- * (1.3.1 — filed upstream as issue #7). Resolving against an empty list here
- * means adopting it later is a data change (wiring the field through
- * resolvedStations in tides.ts), not a code change.
+ * (1.3.1 — filed upstream as issue #7), so only the stations that build the
+ * field themselves carry one today (see FORMER_SLUGS in noaaCurrents.ts).
+ * Reading it off the station means adopting the upstream field later is a data
+ * change (wiring it through resolvedStations in tides.ts), not a code change.
  */
 function formerSlugs(station: Candidate): string[] {
   return (station as Candidate & { formerSlugs?: string[] }).formerSlugs ?? [];

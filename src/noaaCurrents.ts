@@ -26,7 +26,20 @@ export interface ResolvedNoaaCurrentStation extends NoaaCurrentStation {
   context: string;
   slug: string;
   aliases: string[];
+  formerSlugs: string[];
 }
+
+/**
+ * Slugs that have moved, so a shared link still lands (url.ts resolves these).
+ *
+ * Only a rung-3 slug can move, because only it is derived from the qualifier
+ * rather than the name. station-corrections 2.6.0 restated qualifier distances
+ * in nautical miles, which moved exactly one of the 174 bundled stations.
+ */
+const FORMER_SLUGS: Record<string, string[]> = {
+  // "Point Wilson, 2.7 mi. NE of" — the qualifier now reads 2.3 nm.
+  "noaa/PUG1625": ["point-wilson-2-7-mi-ne-of"],
+};
 
 // unknown, not { kind?: string }: TS treats an all-optional object type as
 // "weak" and rejects a union argument (Candidate) where one member — a plain
@@ -96,6 +109,7 @@ export const resolvedNoaaCurrentStations: ResolvedNoaaCurrentStation[] =
       context: r.context.replace(/ of$/, ""),
       slug,
       aliases: r.aliases,
+      formerSlugs: FORMER_SLUGS[station.id] ?? [],
       latitude: r.latitude,
       longitude: r.longitude,
     };

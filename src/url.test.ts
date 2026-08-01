@@ -30,6 +30,14 @@ describe("parseUrl", () => {
     expect(parse("/tide/atlantis")).toBeNull();
   });
 
+  it("lands a link made before a slug moved, and asks the caller to redirect", () => {
+    // station-corrections 2.6.0 restated "2.7 mi. NE of" as "2.3 nm NE of",
+    // which moved the qualifier-derived slug this station falls back to.
+    const got = parseUrl("/tide/point-wilson-2-7-mi-ne-of", candidates)!;
+    expect(got.station.id).toBe("noaa/PUG1625");
+    expect(got.canonical).toBe(false);
+  });
+
   it("ignores an unparseable time rather than failing the whole route", () => {
     const got = parse("/tide/everett/not-a-time")!;
     expect(got.station.slug).toBe("everett");
