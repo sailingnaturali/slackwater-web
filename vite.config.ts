@@ -21,8 +21,8 @@ export default defineConfig({
         short_name: "Slackwater",
         description:
           "Tide predictions for the Salish Sea, computed on your device. Works with no signal.",
-        theme_color: "#0b1a2b",
-        background_color: "#0b1a2b",
+        theme_color: "#05122A",
+        background_color: "#05122A",
         display: "standalone",
         orientation: "portrait",
         start_url: "/",
