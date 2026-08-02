@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import seascape from "./fixtures/seascape-style.json";
 import { composeStyle, localFallbackStyle, pinFeatures, seascapeStyleUrl } from "./mapStyle";
+import { PIN_IMAGE_ID } from "./pinGlyphs";
 import { candidates } from "./place";
 
 const LAND = "pmtiles://https://example.test/land.pmtiles";
@@ -42,8 +43,7 @@ describe("composeStyle", () => {
   it("inserts land above relief, below contours; pins on top", () => {
     expect(ids.indexOf("land")).toBeGreaterThan(-1);
     expect(ids.indexOf("land")).toBeLessThan(ids.indexOf("contour-lines"));
-    expect(ids.indexOf("station-dots-current")).toBe(ids.length - 3);
-    expect(ids.indexOf("station-dots-tide")).toBe(ids.length - 2);
+    expect(ids.indexOf("station-pins")).toBe(ids.length - 2);
     expect(ids.indexOf("station-labels")).toBe(ids.length - 1);
     expect(composed.sources).toHaveProperty("land");
     expect(composed.sources).toHaveProperty("stations");
@@ -65,12 +65,7 @@ describe("composeStyle", () => {
 describe("localFallbackStyle", () => {
   it("is land + pins alone — the offline render", () => {
     const out = localFallbackStyle(LAND, pins);
-    expect(out.layers.map((l) => l.id)).toEqual([
-      "land-bg",
-      "land",
-      "station-dots-current",
-      "station-dots-tide",
-    ]);
+    expect(out.layers.map((l) => l.id)).toEqual(["land-bg", "land", "station-pins"]);
   });
 });
 
@@ -85,18 +80,55 @@ describe("map pins — colour is state, form is kind", () => {
     expect(src).not.toMatch(/circle-color[^\n]*\["get", "kind"\]/);
   });
 
-  it("distinguishes kind by form: current filled, tide hollow", () => {
+  it("distinguishes kind by form: current and tide get different glyphs", () => {
     const style = localFallbackStyle(LAND, pins);
-    const current = style.layers.find((l) => l.id === "station-dots-current")!;
-    const tide = style.layers.find((l) => l.id === "station-dots-tide")!;
-    expect(current).toBeDefined();
-    expect(tide).toBeDefined();
-    const cp = current.paint as Record<string, unknown>;
-    const tp = tide.paint as Record<string, unknown>;
-    // Same colour expression on both — kind must not change it.
-    expect(cp["circle-color"]).toEqual(tp["circle-color"]);
-    // Form differs: the tide pin is a ring, the current pin is solid.
-    expect(cp["circle-opacity"]).toBe(1);
-    expect(tp["circle-opacity"]).toBe(0);
+    const pinLayer = style.layers.find((l) => l.id === "station-pins")!;
+    const iconImage = (pinLayer.layout as Record<string, unknown>)["icon-image"];
+    // Form differs by kind: the "match" expression resolves current and tide
+    // to distinct SDF glyph ids (see pinGlyphs.ts).
+    expect(iconImage).toEqual([
+      "match",
+      ["get", "kind"],
+      "current",
+      PIN_IMAGE_ID.current,
+      PIN_IMAGE_ID.tide,
+    ]);
+    expect(PIN_IMAGE_ID.current).not.toBe(PIN_IMAGE_ID.tide);
+  });
+});
+
+describe("pin layer — one symbol layer, two independent axes", () => {
+  it("writes a state property, defaulting to unknown", () => {
+    const withStates = pinFeatures(candidates, { [candidates[0].slug]: "flood" });
+    expect(withStates.features[0].properties!.state).toBe("flood");
+    const bare = pinFeatures(candidates);
+    expect(bare.features.every((f) => f.properties!.state === "unknown")).toBe(true);
+  });
+
+  it("draws pins with a single symbol layer, not circles", () => {
+    const style = localFallbackStyle(LAND, pins);
+    const pinLayer = style.layers.find((l) => l.id === "station-pins")!;
+    expect(pinLayer.type).toBe("symbol");
+    expect(style.layers.some((l) => l.id.startsWith("station-dots"))).toBe(false);
+  });
+
+  it("keys shape off kind only, and colour off state only", () => {
+    const style = localFallbackStyle(LAND, pins);
+    const pinLayer = style.layers.find((l) => l.id === "station-pins")!;
+    const layout = JSON.stringify((pinLayer.layout as Record<string, unknown>)["icon-image"]);
+    const colour = JSON.stringify((pinLayer.paint as Record<string, unknown>)["icon-color"]);
+    // Shape reads kind and never state.
+    expect(layout).toContain('"kind"');
+    expect(layout).not.toContain('"state"');
+    // Colour reads state and never kind. This is the invariant.
+    expect(colour).toContain('"state"');
+    expect(colour).not.toContain('"kind"');
+  });
+
+  it("halos every pin so it holds against water and land alike", () => {
+    const style = localFallbackStyle(LAND, pins);
+    const paint = style.layers.find((l) => l.id === "station-pins")!.paint as Record<string, unknown>;
+    expect(paint["icon-halo-color"]).toBe("#0b1a2b");
+    expect(paint["icon-halo-width"]).toBeGreaterThan(0);
   });
 });

@@ -6,6 +6,8 @@ import type { Candidate } from "./place";
 import { heightUnit, type Units, type SpeedUnit } from "./units";
 import { composeStyle, localFallbackStyle, pinFeatures, seascapeStyleUrl, type StyleLike } from "./mapStyle";
 import { previewHtml } from "./mapPopup";
+import { pinGlyphImage, PIN_IMAGE_ID, PIN_PIXEL_RATIO } from "./pinGlyphs";
+import { resolvePinStates } from "./pinState";
 
 // Registered once per session; the protocol resolves pmtiles:// tile requests
 // via HTTP range reads against our own origin.
@@ -46,7 +48,9 @@ export default function MapScreen({
     ensureProtocol();
     // stations is the stable candidates pool (module-level import in
     // practice) — captured here, not a dep, so it can't trigger a remount.
-    const pins = pinFeatures(stations);
+    // Reassigned once the state pass resolves, so a later setStyle carries the
+    // enriched features rather than reverting every pin to neutral.
+    let pins = pinFeatures(stations);
     const landUrl = `pmtiles://${new URL("/land.pmtiles", window.location.origin)}`;
     const selected = stations.find((s) => s.id === selectedId);
 
@@ -63,7 +67,54 @@ export default function MapScreen({
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }));
 
+    // setStyle({diff:false}) below drops every registered image, and this map
+    // styles twice (fallback, then Seascape). So re-register on each style
+    // load; hasImage keeps it idempotent.
+    const ensurePinImages = () => {
+      for (const kind of ["current", "tide"] as const) {
+        const id = PIN_IMAGE_ID[kind];
+        if (map.hasImage(id)) continue;
+        map.addImage(id, pinGlyphImage(kind), { sdf: true, pixelRatio: PIN_PIXEL_RATIO });
+      }
+    };
+    // The same swap drops the stations source's data back to whatever `pins`
+    // was when composeStyle ran. If the state pass resolved while the new style
+    // was still loading, its setData hit a source that didn't exist yet
+    // (maplibre defers Style._load to a rAF) and was swallowed by `?.` — every
+    // pin grey for the session. Reapplying on each style load closes that race;
+    // setData fires sourcedata, not styledata, so there's no recursion.
+    const applyPins = () =>
+      (map.getSource("stations") as maplibregl.GeoJSONSource | undefined)?.setData(pins);
+    ensurePinImages();
+    map.on("styledata", () => {
+      ensurePinImages();
+      applyPins();
+    });
+
     let gone = false;
+
+    // Pins draw neutral, then fill in together when the pass completes. One
+    // setData rather than per-pin feature state: no feature ids needed, one
+    // repaint instead of N, and no popcorn effect. Runs once per map open —
+    // state moves over minutes and this is a station picker, not an instrument.
+    // CACHE ONLY — the rejecting fetchFn is load-bearing, not defensive. CHS
+    // state comes from what the offline sync already stored and from nothing
+    // else. Allowed to fetch, opening the map fires one request per unsynced
+    // CHS station through a shared ~24 req/min limiter with retries: a storm
+    // against a third-party API, and over a minute before any pin takes on
+    // colour, since this single setData waits on the slowest station. A
+    // station the sync has not reached stays neutral — the honest unknown.
+    const cacheOnly: typeof fetch = () => Promise.reject(new Error("map pins read cache only"));
+    resolvePinStates(stations, new Date(), { fetchFn: cacheOnly })
+      .then((states) => {
+        if (gone) return;
+        pins = pinFeatures(stations, states);
+        // Paints on first load, when no further style ever arrives (offline).
+        applyPins();
+      })
+      .catch(() => {
+        /* every pin stays neutral, which is the honest unknown */
+      });
     // units is captured at mount for the initial Seascape fetch only; a
     // units change while the map is open doesn't restyle it (rare — the map
     // is a leaf view, closing and reopening picks up the new unit).
@@ -89,7 +140,7 @@ export default function MapScreen({
       popup.setLngLat(coords).setHTML(previewHtml(station, new Date(), units, speedUnit)).addTo(map);
     };
     const stationAt = (point: maplibregl.Point) => {
-      const hit = map.queryRenderedFeatures(point, { layers: ["station-dots-current", "station-dots-tide"] })[0];
+      const hit = map.queryRenderedFeatures(point, { layers: ["station-pins"] })[0];
       const slug = hit?.properties?.slug as string | undefined;
       const station = slug ? stations.find((s) => s.slug === slug) : undefined;
       if (!hit || !station) return null;
@@ -122,7 +173,7 @@ export default function MapScreen({
     });
 
     if (canHover) {
-      const pinLayerIds = ["station-dots-current", "station-dots-tide"];
+      const pinLayerIds = ["station-pins"];
       map.on("mouseenter", pinLayerIds, (e) => {
         map.getCanvas().style.cursor = "pointer";
         const f = e.features?.[0];
