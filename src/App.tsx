@@ -55,6 +55,31 @@ import {
 /** Friday Harbor: central, well-measured, and inside the bundled coverage. */
 const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];
 
+/**
+ * Which station a cold load opens. A deep link always wins. Otherwise the last
+ * station actually viewed, which `visit()` already persists — reopening the app
+ * where you left off beats a fixed station you have no connection to. FALLBACK
+ * (Friday Harbor) is the floor for a genuinely first-ever load.
+ *
+ * Nearest-when-located is NOT handled here: the useLocation effect below swaps
+ * the station in once a position resolves, which is the right sequencing —
+ * showing something immediately beats blocking on a permission prompt.
+ */
+export function initialStation(
+  urlMatch: { station: ViewStation } | null,
+  saved: Saved,
+  all: ViewStation[] = resolvedStations,
+): ViewStation {
+  if (urlMatch) return urlMatch.station;
+  const slug = saved.recent[0];
+  if (slug) {
+    const found = all.find((s) => s.slug === slug);
+    if (found) return found;
+  }
+  // Use Friday Harbor from the provided array (or the first station if not found)
+  return all.find((s) => /friday harbor/i.test(s.name)) ?? all[0];
+}
+
 // Lazy: keeps MapLibre (and its WASM/tile machinery) out of the entry chunk —
 // most visits never open the map.
 const MapScreen = lazy(() => import("./MapScreen"));
@@ -130,11 +155,11 @@ export function App() {
 
   // Returning visitors skip the ask; the browser remembers the grant anyway.
   const [gated, setGated] = useState(() => !localStorage.getItem(SEEN_GATE));
+  const [saved, setSaved] = useState<Saved>(loadSaved);
   // Either a bundled NOAA station or a CHS port — the viewed station drives the
   // whole detail view, and CHS ports are named stations too (spec §7).
-  const [station, setStation] = useState<ViewStation>(() => urlMatch?.station ?? FALLBACK);
+  const [station, setStation] = useState<ViewStation>(() => initialStation(urlMatch, saved));
   const [match, setMatch] = useState<Match | null>(null);
-  const [saved, setSaved] = useState<Saved>(loadSaved);
   // Separate from `match`: CURRENT LOCATION keeps showing where you are even
   // after you pick a different station to look at, so it survives `choose()`
   // resetting `match` (which only hedges the hero's currently-viewed badge).

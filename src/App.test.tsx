@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { createElement, act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createRoot, type Root } from "react-dom/client";
-import { heldWhileLoading, heroMatchFor, App } from "./App";
+import { heldWhileLoading, heroMatchFor, App, initialStation } from "./App";
 import { distanceKm, type Match } from "./tides";
 import { resolvedNoaaCurrentStations } from "./noaaCurrents";
 
@@ -108,6 +108,30 @@ describe("heroMatchFor", () => {
 
   it("falls back to the raw match before a place resolves", () => {
     expect(heroMatchFor(null, match, station)).toEqual({ km: 3.2, quality: "good" });
+  });
+});
+
+describe("initialStation", () => {
+  const a = { slug: "everett", name: "Everett" } as never;
+  const b = { slug: "friday-harbor", name: "Friday Harbor" } as never;
+  const all = [a, b];
+  const empty = { starred: [], recent: [], lastLocationSlug: null, placeStations: {} };
+
+  it("prefers a deep link over everything", () => {
+    const saved = { ...empty, recent: ["everett"] };
+    expect(initialStation({ station: b } as never, saved, all)).toBe(b);
+  });
+
+  it("falls back to the last viewed station", () => {
+    expect(initialStation(null, { ...empty, recent: ["everett"] }, all)).toBe(a);
+  });
+
+  it("falls back to the fixed station when nothing is remembered", () => {
+    expect(initialStation(null, empty, all)).toBe(b);
+  });
+
+  it("ignores a remembered slug that no longer resolves", () => {
+    expect(initialStation(null, { ...empty, recent: ["sunk-island"] }, all)).toBe(b);
   });
 });
 
