@@ -95,8 +95,24 @@ everything imperative stays in `MapScreen.tsx`. `map.addImage` is imperative, so
 
 `pinFeatures(stations, states?)` takes an optional slug → tone map and writes a `state` property per
 feature, defaulting to `"unknown"`. On map open `MapScreen` resolves every state it can — NOAA
-synchronously, CHS concurrently from cache — and then calls `setData` **once** with the enriched
+synchronously, CHS **from the cache only** — and then calls `setData` **once** with the enriched
 collection.
+
+**The map never fetches.** *Amended 2026-08-01 after live observation.* CHS state comes from what the
+offline sync has already stored in IndexedDB, and from nothing else: `MapScreen` passes a
+`fetchFn` that rejects immediately, so `chsTideDay` / `chsCurrentDay` serve from cache or report
+`"unknown"`.
+
+This is not an optimisation, it is the difference between working and not. Left to fetch, opening the
+map fires one request per unsynced CHS station through a shared rate limiter (`chs/client.ts` —
+3-request burst, then one token per 2.5s, ~24/min) with retries on top. With the dozens of CHS
+stations in a default Salish Sea view that is both a fetch storm against a third-party API on every
+map open, and a wait of well over a minute before a single pin takes on colour — because the one
+`setData` is gated on the slowest station. Observed directly: every pin rendered neutral grey across
+two captures, with a clean console, because the work was merely still queued.
+
+A station the sync has not reached stays neutral. That is the honest "unknown — tap it" the rest of
+this spec describes, and tapping it is what fetches its reading.
 
 One `setData` rather than `setFeatureState` per pin, deliberately: it requires no feature ids, it is a
 single repaint instead of N, and the pins fill in together rather than popping in one at a time. The

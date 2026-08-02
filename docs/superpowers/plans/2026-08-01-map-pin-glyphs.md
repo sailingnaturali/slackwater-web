@@ -717,7 +717,16 @@ Then, after the `map.on("styledata", ensurePinImages);` line from Step 1, add:
     // setData rather than per-pin feature state: no feature ids needed, one
     // repaint instead of N, and no popcorn effect. Runs once per map open —
     // state moves over minutes and this is a station picker, not an instrument.
-    resolvePinStates(stations, new Date())
+    //
+    // CACHE ONLY — the rejecting fetchFn is load-bearing, not defensive. CHS
+    // state comes from what the offline sync already stored and from nothing
+    // else. Allowed to fetch, opening the map fires one request per unsynced
+    // CHS station through a shared ~24 req/min limiter with retries: a storm
+    // against a third-party API, and over a minute before any pin takes on
+    // colour, since this single setData waits on the slowest station. A
+    // station the sync has not reached stays neutral — the honest unknown.
+    const cacheOnly: typeof fetch = () => Promise.reject(new Error("map pins read cache only"));
+    resolvePinStates(stations, new Date(), { fetchFn: cacheOnly })
       .then((states) => {
         if (gone) return;
         pins = pinFeatures(stations, states);
@@ -762,9 +771,11 @@ Automated tests cannot see whether pins render or whether clicking one works. Ru
 npm run dev   # then open http://localhost:5173/map
 ```
 
+**Verify with a cold cache.** A dev session that has already fetched CHS data has a warm IndexedDB and will show colour that a real first-run user does not. Use a fresh browser profile, or clear IndexedDB for the origin, before judging point 2 — a warm cache is exactly what made an earlier verification of this feature report success while every pin was in fact grey.
+
 Confirm all five:
 1. Pins render as **wave** shapes for current stations and **dome-over-line** shapes for tide stations.
-2. After a moment they take on colour — blue flooding/rising, amber ebbing/falling, green slack — and any unresolved station stays neutral grey.
+2. Colour: the bundled NOAA stations — the US San Juans — must take on blue/amber/green **immediately**, because they predict on-device and never touch the cache. CHS stations show colour only where the offline sync has already stored their day, and stay neutral grey otherwise. If *every* pin is grey, the NOAA path is broken; if only the Canadian ones are grey on a cold cache, that is correct behaviour.
 3. Every pin has a visible dark edge against both the pale water and the cream land.
 4. **Clicking a current pin** opens that station; **clicking a tide pin** opens that station.
 5. **Hovering** either kind shows the popup and a pointer cursor.
