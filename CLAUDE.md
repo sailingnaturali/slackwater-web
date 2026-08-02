@@ -38,7 +38,7 @@ The single design invariant, established 2026-08-01
   diverging axis) and `--go` for slack. `--rising` and `--falling` are aliases of
   the first two.
 - **Form** encodes what kind of station it is: `StationGlyph`'s shape on cards,
-  filled-vs-hollow circles for map pins.
+  and the wave-vs-dome SDF glyphs in `src/pinGlyphs.ts` for map pins.
 - **Nothing may derive colour from station kind.** The map and the stylesheet
   once disagreed about what green meant — kind on one surface, direction on the
   other — which is the defect this rule exists to prevent.
@@ -53,7 +53,7 @@ Three tests enforce this and will fail loudly if it erodes:
 |---|---|
 | `src/tokens.test.ts` | retired tokens/hues returning; any font size under 14px (one exception: `.eyebrow` at 12px) |
 | `src/StationGlyph.test.tsx` | colour tracking kind, or form tracking state |
-| `src/mapStyle.test.ts` | pins coloured by kind — asserts both layers share one colour expression |
+| `src/mapStyle.test.ts` | pins coloured by kind — asserts the one pin layer's `icon-image` reads only `kind` and its `icon-color` only `state` |
 
 `--warn` is deliberately a different hue from `--ebb`. They were briefly the same
 hex and collided in the event list, where a sunset pill and a max-ebb pill became

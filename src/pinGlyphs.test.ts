@@ -24,8 +24,9 @@ describe("pinGlyphImage", () => {
   it("puts the shape edge at maplibre's 0.75 threshold, and saturates inside", () => {
     const img = pinGlyphImage("tide");
     const mid = Math.floor(img.width / 2);
-    // maplibre's SDF shader thresholds the icon fill at buff = 192/256 = 0.75
-    // (verified in maplibre-gl 5.24.0: `buff=(256.0-64.0)/256.0`), so the shape
+    // maplibre's SDF shader thresholds the icon fill at 192/256 = 0.75
+    // (verified in maplibre-gl 5.24.0 — an icon-only symbol layer runs
+    // `symbolSDFFrag`: `inner_edge=(256.0-64.0)/256.0`), so the shape
     // edge must encode at ~191 and the interior must exceed it — reaching 255,
     // or the stroke renders thin-to-invisible however correct the geometry is.
     expect(alphaAt(img, 0, 0)).toBe(0); // corner: far outside every stroke

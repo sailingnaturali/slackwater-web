@@ -64,9 +64,11 @@ expressible as a test:
 ```js
 "icon-image": ["match", ["get", "kind"], "current", "pin-current", "pin-tide"],
 "icon-color": ["match", ["get", "state"],
-                "flood", "#4a9fd8",
-                "ebb",   "#e8a33d",
-                "slack", "#88b868",
+                "rising",  "#4a9fd8",   // tide stations report rising/falling,
+                "flood",   "#4a9fd8",   // current stations flood/ebb/slack —
+                "falling", "#e8a33d",   // all five branches, or the tide
+                "ebb",     "#e8a33d",   // stations (the majority of pins) all
+                "slack",   "#88b868",   // draw neutral.
                 /* unknown */ "#7d9cb8"],
 "icon-halo-color": "#0b1a2b",
 "icon-halo-width": 1.5,

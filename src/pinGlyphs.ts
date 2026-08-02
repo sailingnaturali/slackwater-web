@@ -29,8 +29,9 @@ export const PIN_PIXEL_RATIO = 2;
 const SIZE = 22 * PIN_PIXEL_RATIO; // field is SIZE x SIZE
 
 /**
- * maplibre's SDF constants, not ours to choose. Its shader thresholds the icon
- * fill at `buff = (256 - 64) / 256 = 0.75` over a field authored with
+ * maplibre's SDF constants, not ours to choose. An icon-only symbol layer runs
+ * `symbolSDFFrag`, which thresholds the icon fill at
+ * `inner_edge = (256 - 64) / 256 = 0.75` over a field authored with
  * `SDF_PX = 8` texture pixels — so the shape edge encodes at 0.75 (~191), not
  * at the 0.5 an intuitive signed-distance encoding would use. Encode the edge
  * at 0.5 and the whole glyph sits below the shader's threshold and renders
