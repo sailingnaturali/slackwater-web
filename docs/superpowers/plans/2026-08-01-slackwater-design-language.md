@@ -89,15 +89,18 @@ describe("design tokens", () => {
 
   it("raises faint ink to a 4.5:1 contrast", () => {
     expect(css).toContain("--ink-faint: #7d9cb8");
-    expect(css).not.toContain("#5888a8");
+    // --sn-steel keeps its #5888a8 value — it is still the hover-border tone.
+    // What must change is --ink-faint no longer pointing at it.
+    expect(css).not.toContain("--ink-faint: var(--sn-steel)");
   });
 
-  it("keeps no font size below the 14px floor except the eyebrow", () => {
-    // rem sizes below 0.875rem (14px) are the bug Brandon reported.
-    const tooSmall = [...css.matchAll(/font-size:\s*(0\.\d+)rem/g)]
-      .map((m) => Number(m[1]))
-      .filter((v) => v < 0.875);
-    expect(tooSmall).toEqual([0.75]); // the single .eyebrow exception, 12px
+  it("keeps no font size below the 14px floor except the 12px eyebrow", () => {
+    // Sizes below 14px are the bug Brandon reported. Checks px as well as rem,
+    // and collapses duplicates — several selectors legitimately share a size.
+    const rem = [...css.matchAll(/font-size:\s*(\d*\.?\d+)rem/g)].map((m) => Number(m[1]));
+    const px = [...css.matchAll(/font-size:\s*(\d+)px/g)].map((m) => Number(m[1]) / 16);
+    const belowFloor = [...new Set([...rem, ...px].filter((v) => v < 0.875))];
+    expect(belowFloor).toEqual([0.75]); // the single .eyebrow exception, 12px
   });
 });
 ```
@@ -161,21 +164,20 @@ Replace `font-family: var(--font-display);` with `font-family: var(--font-sans);
 
 - [ ] **Step 5: Raise the sizes to the floor**
 
-Apply the 14px floor. Every `font-size` below `0.875rem` becomes `0.875rem`, except `.eyebrow`, which becomes `0.75rem` (12px — a tracked uppercase label, not content). The sites are:
+Apply the 14px floor mechanically. Find every site:
 
+```bash
+grep -nE "font-size:\s*(0\.[0-9]+rem|[0-9]+px)" src/styles.css
 ```
-99-100   .eyebrow              0.7rem  -> 0.75rem
-356      .reading .dir         0.72rem -> 0.875rem
-391      .chart text           11px    -> 14px
-475      .event .pill          0.68rem -> 0.875rem
-585      .station-group count  0.7rem  -> 0.875rem
-665      .pill                 0.7rem  -> 0.875rem
-696      .phase-pill           0.7rem  -> 0.875rem
-307,333  .chooser              0.8rem  -> 0.875rem
-419,434  .events-date, .today  0.8rem/0.85rem -> 0.875rem
-673,674  .station-card-context / -next  0.82rem -> 0.875rem
-729,749  .location-action, settings     0.82rem/0.85rem -> 0.875rem
-```
+
+That reports **25 rem occurrences below `0.875rem`** (values `0.68`, `0.7` ×4, `0.72`, `0.75`, `0.8` ×7, `0.82` ×4, `0.85` ×7) plus one `11px`. Rules:
+
+- `.eyebrow` (line ~99-100) → `0.75rem`. This is the **only** selector allowed below the floor.
+- **Every other** sub-floor rem value → `0.875rem`.
+- `font-size: 11px` (line ~391, `.chart text`) → `14px`.
+- `font-size: 16px` (line ~74, `body`) is already at the floor — leave it.
+
+**The trap:** line ~941 (`.offline-meter-pct`, `.offline-meter-label`) is already `0.75rem` and is *not* an eyebrow — it is content and must go to `0.875rem`. Leaving it makes the Step 1 test fail with `[0.75, 0.75]`, because that assertion allows exactly one distinct sub-floor value and it belongs to `.eyebrow`.
 
 Add `font-variant-numeric: tabular-nums;` to `.reading .value` (line ~372) and `.event time` / `.event .height` (lines ~497-498).
 
