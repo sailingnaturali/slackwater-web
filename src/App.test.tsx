@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { createElement, act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createRoot, type Root } from "react-dom/client";
-import { heldWhileLoading, heroMatchFor, App, initialStation } from "./App";
+import { heldWhileLoading, heroMatchFor, App, initialStation, FALLBACK } from "./App";
 import { distanceKm, type Match } from "./tides";
 import { resolvedNoaaCurrentStations } from "./noaaCurrents";
 
@@ -127,11 +127,11 @@ describe("initialStation", () => {
   });
 
   it("falls back to the fixed station when nothing is remembered", () => {
-    expect(initialStation(null, empty, all)).toBe(b);
+    expect(initialStation(null, empty, all)).toBe(FALLBACK);
   });
 
   it("ignores a remembered slug that no longer resolves", () => {
-    expect(initialStation(null, { ...empty, recent: ["sunk-island"] }, all)).toBe(b);
+    expect(initialStation(null, { ...empty, recent: ["sunk-island"] }, all)).toBe(FALLBACK);
   });
 });
 

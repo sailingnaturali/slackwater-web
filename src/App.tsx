@@ -53,7 +53,7 @@ import {
 } from "./savedStations";
 
 /** Friday Harbor: central, well-measured, and inside the bundled coverage. */
-const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];
+export const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? stations[0];
 
 /**
  * Which station a cold load opens. A deep link always wins. Otherwise the last
@@ -72,12 +72,7 @@ export function initialStation(
 ): ViewStation {
   if (urlMatch) return urlMatch.station;
   const slug = saved.recent[0];
-  if (slug) {
-    const found = all.find((s) => s.slug === slug);
-    if (found) return found;
-  }
-  // Use Friday Harbor from the provided array (or the first station if not found)
-  return all.find((s) => /friday harbor/i.test(s.name)) ?? all[0];
+  return (slug && all.find((s) => s.slug === slug)) || FALLBACK;
 }
 
 // Lazy: keeps MapLibre (and its WASM/tile machinery) out of the entry chunk —
