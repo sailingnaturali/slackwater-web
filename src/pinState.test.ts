@@ -43,12 +43,26 @@ describe("resolvePinStates", () => {
     expect(states[chs.slug]).toBe("unknown");
   });
 
-  it("never rejects — one station's failure must not blank the whole map", async () => {
+  it("never rejects when a CHS station cannot be served", async () => {
     const chs = candidates.find(isChs)!;
     const mixed = [resolvedStations[0], chs];
     const states = await resolvePinStates(mixed, NOW, { cache: memoryCache(), fetchFn: offline });
     expect(Object.keys(states)).toHaveLength(2);
     // The bundled station still resolved despite its neighbour failing.
+    expect(states[resolvedStations[0].slug]).not.toBe("unknown");
+  });
+
+  it("never rejects when a bundled station's own prediction throws", async () => {
+    // The real hazard: predict() and noaaCurrentState() are unguarded maths,
+    // and Promise.allSettled nets only the CHS promises. A malformed station
+    // must degrade to unknown, not take the whole map down with it.
+    const broken = { ...resolvedStations[0], slug: "broken-station", constituents: null } as unknown as
+      (typeof resolvedStations)[0];
+    const states = await resolvePinStates([broken, resolvedStations[0]], NOW, {
+      cache: memoryCache(),
+      fetchFn: offline,
+    });
+    expect(states["broken-station"]).toBe("unknown");
     expect(states[resolvedStations[0].slug]).not.toBe("unknown");
   });
 });

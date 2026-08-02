@@ -56,7 +56,16 @@ export async function resolvePinStates(
         }),
       );
     } else {
-      states[s.slug] = syncTone(s, now);
+      // Guarded for the same reason chsTone is. predict() and
+      // noaaCurrentState() are unguarded maths over bundled data, so a single
+      // malformed station would throw straight out of this loop and blank
+      // every other pin on the map. allSettled below only nets the CHS
+      // promises; it does nothing for this synchronous branch.
+      try {
+        states[s.slug] = syncTone(s, now);
+      } catch {
+        states[s.slug] = "unknown";
+      }
     }
   }
   // allSettled, not all: one station's failure must not blank the whole map.
