@@ -86,7 +86,15 @@ export default function MapScreen({
     // setData rather than per-pin feature state: no feature ids needed, one
     // repaint instead of N, and no popcorn effect. Runs once per map open —
     // state moves over minutes and this is a station picker, not an instrument.
-    resolvePinStates(stations, new Date())
+    // CACHE ONLY — the rejecting fetchFn is load-bearing, not defensive. CHS
+    // state comes from what the offline sync already stored and from nothing
+    // else. Allowed to fetch, opening the map fires one request per unsynced
+    // CHS station through a shared ~24 req/min limiter with retries: a storm
+    // against a third-party API, and over a minute before any pin takes on
+    // colour, since this single setData waits on the slowest station. A
+    // station the sync has not reached stays neutral — the honest unknown.
+    const cacheOnly: typeof fetch = () => Promise.reject(new Error("map pins read cache only"));
+    resolvePinStates(stations, new Date(), { fetchFn: cacheOnly })
       .then((states) => {
         if (gone) return;
         pins = pinFeatures(stations, states);
