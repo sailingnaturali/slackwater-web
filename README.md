@@ -88,17 +88,18 @@ datum and carry the same **not for navigation** caveat as everything else here.
 
 ## Design
 
-Type, palette and idiom come from the Sailing Naturali design system — Fraunces display,
-Geist body, Geist Mono eyebrows in uppercase with wide tracking, navy and forest green on
-warm paper, hairline borders and flat bands rather than card shadows. The water ramp behind
-the first-run screen and the green hairline rule are lifted from `web/src/styles.css` so the
+Type, palette and idiom come from the Sailing Naturali design system — the system font
+stack, mono eyebrows in uppercase with wide tracking, navy and forest green on warm paper,
+hairline borders and flat bands rather than card shadows. The water ramp behind the
+first-run screen and the green hairline rule are lifted from `web/src/styles.css` so the
 charter site and this app read as one brand.
 
 Two deliberate departures:
 
-- **Fonts are self-hosted**, where the web repo `@import`s them from Google. A webfont
-  request would be a network dependency in an app whose promise is not needing one — and the
-  PWA precache list includes the font files themselves for exactly that reason.
+- **There are no webfonts**, where the web repo `@import`s them from Google. A font request
+  is a network dependency in an app whose promise is not needing one, and a self-hosted
+  font is still bytes to precache and miss. The system stack is already on the device —
+  nothing to fetch, nothing to cache, nothing to go wrong offline.
 - **Dark is the only supported scheme.** The house style is paper-white; this gets read at
   05:00 in a cockpit, where that destroys night vision. There is no light mode and no
   device-setting toggle — `color-scheme: dark` is unconditional.
