@@ -1,4 +1,6 @@
 import { isCurrentStation, type Candidate } from "./place";
+import type { Tone } from "./StationGlyph";
+import { PIN_IMAGE_ID } from "./pinGlyphs";
 
 export type StyleLayer = { id: string; type: string; [k: string]: unknown };
 export type StyleLike = {
@@ -12,8 +14,18 @@ export function seascapeStyleUrl(unit: "ft" | "m"): string {
   return `https://tiles.openwaters.io/seascape/style.json?unit=${unit}`;
 }
 
-/** Every station the app can name, as map pins. Identity only — no readings. */
-export function pinFeatures(stations: Candidate[]): GeoJSON.FeatureCollection {
+/**
+ * Every station the app can name, as map pins. `kind` drives the pin's shape
+ * and `state` its colour — two properties for two independent axes, so the
+ * layer expressions can never accidentally cross them.
+ *
+ * `states` is optional and partial: a station with no resolved tone draws
+ * neutral, which honestly reads as "unknown — tap it".
+ */
+export function pinFeatures(
+  stations: Candidate[],
+  states: Record<string, Tone> = {},
+): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
     features: stations.map((s) => ({
@@ -25,6 +37,7 @@ export function pinFeatures(stations: Candidate[]): GeoJSON.FeatureCollection {
         // A pin is "current" for a CHS gate or a NOAA current station, "tide"
         // otherwise — identity, the same predicate the list card's glyph uses.
         kind: isCurrentStation(s) ? "current" : "tide",
+        state: states[s.slug] ?? "unknown",
       },
     })),
   };
@@ -34,16 +47,16 @@ export function pinFeatures(stations: Candidate[]): GeoJSON.FeatureCollection {
 const LAND_TONE = "#f5ecd7";
 const WATER_TONE = "#0b1a2b";
 
-// A pin's COLOUR is the water's state, never the station's kind — kind is the
-// pin's form (filled = current, hollow ring = tide). `pinFeatures` carries
-// identity only and CHS readings are fetched online (see mapPopup.pinReading,
-// which returns null for every CHS station), so most Salish Sea pins have no
-// knowable state at draw time. They draw neutral, which honestly means "unknown
-// — tap it" rather than asserting a state we don't have.
-//
-// ponytail: filled-vs-hollow circles, not the wave/dome glyphs the list uses.
-// Matching those exactly needs SDF icons via map.addImage + icon-color; do that
-// if pin kind ever gets misread in the field.
+// Colour is the water's state, never the station's kind — kind is the pin's
+// SHAPE, carried by an SDF glyph (see pinGlyphs.ts). Hex literals rather than
+// CSS custom properties because maplibre paint expressions cannot read them.
+const PIN_COLOUR: Record<string, string> = {
+  rising: "#4a9fd8",
+  flood: "#4a9fd8",
+  falling: "#e8a33d",
+  ebb: "#e8a33d",
+  slack: "#88b868",
+};
 const PIN_UNKNOWN = "#7d9cb8";
 
 function landSource(landUrl: string) {
@@ -63,40 +76,41 @@ const landLayer: StyleLayer = {
 };
 
 function pinLayers(style: StyleLike): StyleLayer[] {
-  const dotBase = {
-    type: "circle",
+  const pinLayer: StyleLayer = {
+    id: "station-pins",
+    type: "symbol",
     source: "stations",
+    layout: {
+      "icon-image": ["match", ["get", "kind"], "current", PIN_IMAGE_ID.current, PIN_IMAGE_ID.tide],
+      "icon-size": 1,
+      // maplibre hides colliding symbols by default; a hidden pin is a
+      // station the user cannot tap. Stations are sparse enough that a
+      // crowded map beats a silently missing one.
+      "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
+    },
     paint: {
-      "circle-radius": 5,
-      "circle-color": PIN_UNKNOWN,
-      "circle-stroke-width": 1.5,
-      "circle-stroke-color": WATER_TONE,
+      "icon-color": [
+        "match",
+        ["get", "state"],
+        "rising", PIN_COLOUR.rising,
+        "flood", PIN_COLOUR.flood,
+        "falling", PIN_COLOUR.falling,
+        "ebb", PIN_COLOUR.ebb,
+        "slack", PIN_COLOUR.slack,
+        PIN_UNKNOWN,
+      ],
+      "icon-halo-color": WATER_TONE,
+      "icon-halo-width": 1.5,
     },
   };
-  const currentDots: StyleLayer = {
-    ...dotBase,
-    id: "station-dots-current",
-    filter: ["==", ["get", "kind"], "current"],
-    paint: { ...dotBase.paint, "circle-opacity": 1 },
-  };
-  const tideDots: StyleLayer = {
-    ...dotBase,
-    id: "station-dots-tide",
-    filter: ["==", ["get", "kind"], "tide"],
-    // A ring: no fill, the pin's colour moved onto the stroke.
-    paint: {
-      ...dotBase.paint,
-      "circle-opacity": 0,
-      "circle-stroke-width": 2,
-      "circle-stroke-color": PIN_UNKNOWN,
-    },
-  };
-  // Labels need glyphs — that's the decisive signal (the local fallback
-  // declares none, so it's dots only; see localFallbackStyle). When the host
-  // style does carry glyphs, prefer its own symbol layers' font stack; our
+  // Labels need glyphs from a glyph server; the local fallback style declares
+  // none, so there it is pins without labels. Icons are unaffected — only text
+  // needs glyphs — so the fallback still draws the full pin language. When the
+  // host style does carry glyphs, prefer its own symbol layers' font stack; our
   // vendored fixture is trimmed to id/type/source only (Step 1), so no
   // sample survives there — fall back to a default glyph-server font name.
-  if (!style.glyphs) return [currentDots, tideDots];
+  if (!style.glyphs) return [pinLayer];
   const sample = style.layers.find(
     (l) => l.type === "symbol" && (l.layout as Record<string, unknown> | undefined)?.["text-font"],
   );
@@ -119,7 +133,7 @@ function pinLayers(style: StyleLike): StyleLayer[] {
     },
     paint: { "text-color": "#e8e4d8", "text-halo-color": WATER_TONE, "text-halo-width": 1 },
   };
-  return [currentDots, tideDots, labels];
+  return [pinLayer, labels];
 }
 
 /**
@@ -146,7 +160,7 @@ export function composeStyle(
   return style;
 }
 
-/** Offline / style-fetch-failed: land + pins, honestly bare. No glyphs → dots only, but the local fallback declares none so labels are simply absent. */
+/** Offline / style-fetch-failed: land + pins, honestly bare. No glyph server means no labels — the local fallback declares none — but pins draw their full shape-and-colour language regardless. */
 export function localFallbackStyle(landUrl: string, pins: GeoJSON.FeatureCollection): StyleLike {
   const base: StyleLike = {
     version: 8,
