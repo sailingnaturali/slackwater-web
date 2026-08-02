@@ -24,7 +24,13 @@ import { type ChsCache, indexedDbCache } from "./chs/cache";
 /** Resolvable without I/O: bundled NOAA tide and current stations. */
 export function syncTone(station: Candidate, now: Date): Tone {
   if (isChs(station)) return "unknown";
-  if (isNoaaCurrent(station)) return noaaCurrentState(station, now).phase;
+  // 6 h window, not noaaCurrentState's 30 h default: the pin reads `.phase`
+  // only, which comes from the signed value at `now`, so the rest of the window
+  // is work thrown away. Measured over the 133 bundled NOAA current stations:
+  // 88.3 ms at 30 h vs 17.1 ms at 6 h, with 0 phase mismatches across 4 times
+  // of day (532 samples). The default stays as it is — other callers need the
+  // full window for their next-slack/next-max lookahead.
+  if (isNoaaCurrent(station)) return noaaCurrentState(station, now, 6).phase;
   return predict(station, now).rising ? "rising" : "falling";
 }
 
