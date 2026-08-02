@@ -50,7 +50,9 @@ const WATER_TONE = "#0b1a2b";
 // Colour is the water's state, never the station's kind — kind is the pin's
 // SHAPE, carried by an SDF glyph (see pinGlyphs.ts). Hex literals rather than
 // CSS custom properties because maplibre paint expressions cannot read them.
-const PIN_COLOUR: Record<string, string> = {
+// Exclude<Tone, "unknown"> so a dropped or typo'd tone is a compile error, not
+// a pin that silently falls through to PIN_UNKNOWN.
+const PIN_COLOUR: Record<Exclude<Tone, "unknown">, string> = {
   rising: "#4a9fd8",
   flood: "#4a9fd8",
   falling: "#e8a33d",

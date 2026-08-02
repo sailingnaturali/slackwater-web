@@ -131,13 +131,4 @@ describe("pin layer — one symbol layer, two independent axes", () => {
     expect(paint["icon-halo-color"]).toBe("#0b1a2b");
     expect(paint["icon-halo-width"]).toBeGreaterThan(0);
   });
-
-  it("still refuses to colour by station kind", () => {
-    // import.meta.url resolves against jsdom's location (not file:) under
-    // this repo's default test environment — read via __dirname instead,
-    // same as the "no longer colours pins by station kind" test above.
-    const src = readFileSync(join(__dirname, "mapStyle.ts"), "utf8");
-    expect(src).not.toContain("#8fd0a0");
-    expect(src).not.toContain("#7fb3d5");
-  });
 });
