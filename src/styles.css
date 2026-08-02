@@ -642,15 +642,20 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .search-label { color: var(--sn-leaf); }
 .search-empty { color: var(--ink-faint); }
 
-/* The card itself: one fixed gradient for every card (see StationCard.tsx —
-   deliberate, pending a decision on what a tint would even mean). */
+/* Kind is the shape; state is the colour. Never the other way round. */
+.station-glyph { width: 26px; height: 26px; flex: 0 0 auto; margin-top: 2px; color: var(--ink-faint); }
+.station-glyph.rising, .station-glyph.flood { color: var(--flood); }
+.station-glyph.falling, .station-glyph.ebb { color: var(--ebb); }
+.station-glyph.slack { color: var(--go); }
+.station-glyph.unknown { color: var(--ink-faint); }
+
 .station-card {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
   width: 100%;
-  background: linear-gradient(155deg, #123763 0%, #0d2b4d 55%, #0a2545 100%);
+  background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: 10px;
   padding: 0.85rem 1rem;
@@ -660,10 +665,8 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .station-card:hover { border-color: var(--sn-steel); }
 .station-card.current { border-color: var(--sn-leaf); }
 
-
-.station-card-main { display: flex; flex-direction: column; min-width: 0; gap: 0.25rem; }
-.station-card-title { margin: 0; display: flex; align-items: baseline; gap: 0.6rem; }
-.station-card-name { font-family: var(--font-sans); font-weight: 600; font-size: 17px; }
+.station-card-main { display: flex; flex-direction: column; min-width: 0; gap: 0.15rem; flex: 1 1 auto; }
+.station-card-name { font-family: var(--font-sans); font-weight: 600; font-size: 17px; margin: 0; }
 
 .pill {
   font-family: var(--font-mono);
@@ -677,21 +680,23 @@ button.ghost:hover { border-color: var(--sn-paper); }
 }
 
 .station-card-context { margin: 0; font-size: 0.875rem; color: var(--ink-faint); }
-.station-card-next { margin: 0; font-size: 0.875rem; color: var(--ink-soft); }
-
+.station-card-dist { margin: 0; font-size: 0.875rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .station-card-reading {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.2rem;
+  gap: 0.15rem;
   flex-shrink: 0;
+  text-align: right;
 }
 .station-card-value {
   font-family: var(--font-sans);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-size: 26px;
+  line-height: 1.1;
 }
+.station-card-next { margin: 0; font-size: 0.875rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 /* A gate with no speed to show (derived gate, or slack) tags its phase in a
    compact pill rather than a display-size word — the word widened the reading
