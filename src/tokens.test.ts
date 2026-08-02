@@ -16,6 +16,28 @@ describe("design tokens", () => {
     expect(css).toContain("--falling: var(--ebb)");
   });
 
+  it("keeps --warn off the direction axis", () => {
+    // They were the same hex, and a sunset chip sat beside a max-ebb chip in
+    // one list reading identically. One hue, one job.
+    const hex = (name: string) => css.match(new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, "i"))?.[1];
+    expect(hex("warn")).toBeDefined();
+    expect(hex("warn")).not.toBe(hex("ebb"));
+    expect(hex("warn")).not.toBe(hex("flood"));
+  });
+
+  it("routes slack to --go on every surface it appears on", () => {
+    // Green meant slack on the glyph and nothing else, so one card showed a
+    // green gate beside a grey pill reading "slack".
+    for (const rule of [
+      ".chart .dot.slack { fill: var(--go); }",
+      ".event .pill.slack { background: var(--go); }",
+      ".phase-pill.slack { color: var(--go); }",
+      ".station-glyph.slack { color: var(--go); }",
+    ]) {
+      expect(css).toContain(rule);
+    }
+  });
+
   it("has no display serif left to apply inconsistently", () => {
     expect(css).not.toContain("--font-display");
     expect(css).not.toContain("Fraunces");
