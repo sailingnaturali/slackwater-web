@@ -183,8 +183,12 @@ The existing `mapStyle.test.ts` assertion that no retired hue survives stays as-
 
 **In:** the four decisions above, on `slackwater-web`.
 
-**Out:** live/timed state refresh; sharing literal SVG path data with `StationGlyph`; any change to
-`pinReading` or the popup; clustering.
+**Out:** live/timed state refresh; sharing mark geometry with `StationGlyph`; clustering.
+
+*The popup was out of scope until the 2026-08-02 amendment.* Once the pin became a plain marker whose
+only signal is colour, the popup became the thing that explains the colour, so §2a brings it in
+deliberately. `pinReading` narrows to the quantity alone — the state word now comes from `syncTone`,
+so the two do not say the same thing twice.
 
 **Adjacent, deliberately not bundled:** `maplibre-gl` 6.0.0 is open in dependabot. SDF `addImage` is
 stable API and no breakage is expected, but this change is the one place in the app that would care.

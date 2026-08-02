@@ -37,8 +37,10 @@ The single design invariant, established 2026-08-01
 - **Colour** encodes what the water is doing: `--flood` / `--ebb` (a signed
   diverging axis) and `--go` for slack. `--rising` and `--falling` are aliases of
   the first two.
-- **Form** encodes what kind of station it is: `StationGlyph`'s shape on cards,
-  and the wave-vs-dome SDF glyphs in `src/pinGlyphs.ts` for map pins.
+- **Form** encodes what kind of station it is: `StationGlyph`'s wave-vs-dome shape
+  on cards, and the circle-vs-square SDF marks in `src/pinGlyphs.ts` for map pins —
+  the two surfaces deliberately don't share a mark (see
+  `docs/superpowers/specs/2026-08-01-map-pin-glyphs-design.md` §1).
 - **Nothing may derive colour from station kind.** The map and the stylesheet
   once disagreed about what green meant — kind on one surface, direction on the
   other — which is the defect this rule exists to prevent.
