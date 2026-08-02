@@ -1,20 +1,15 @@
-@import "@fontsource-variable/fraunces/wght.css";
-@import "@fontsource-variable/geist/wght.css";
-@import "@fontsource-variable/geist-mono/wght.css";
-
 /*
  * Slackwater — the Sailing Naturali house style, applied to an instrument.
  *
  * Type, palette and idiom come from the design-system project (the same one
- * behind Itineraries / RouteMap / SiteFooter): Fraunces display, Geist body,
- * Geist Mono eyebrows in uppercase with wide tracking, navy and forest green on
+ * behind Itineraries / RouteMap / SiteFooter): the system font stack in
+ * uppercase mono for eyebrows with wide tracking, navy and forest green on
  * warm paper, hairline borders and flat bands doing the separation — no card
  * shadows. The `sn-hero` water ramp and `sn-rule` green hairline are lifted
  * verbatim from web/src/styles.css so the two surfaces stay one brand.
  *
- * Fonts are self-hosted rather than @import-ed from Google as the web repo does
- * — a webfont request would be a network dependency in an app whose entire
- * promise is not needing one, and the service worker precaches these.
+ * Type is the system stack, not a webfont — a font request would be a network
+ * dependency in an app whose entire promise is not needing one.
  *
  * Dark is the ground, full stop. This gets read at 05:00 in a cockpit where a
  * paper-white screen destroys night vision, so there is no light scheme to
@@ -39,23 +34,38 @@
   --sn-cloud: #f0f0f0;
   --sn-paper: #fcfcfc;
 
-  --font-display: "Fraunces Variable", ui-serif, Georgia, serif;
-  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", monospace;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
 
-  /* Semantic layer — the only things components reference. */
+  /* Semantic layer — the only things components reference.
+   *
+   * Colour encodes STATE. Form encodes KIND. These are two different axes and
+   * they used to share one pair of hues: the map painted station kind in
+   * green/blue while this file painted direction in the same green/blue, so a
+   * green dot meant "current station" on one surface and "flooding" on
+   * another. Direction is now a signed diverging axis (amber<->blue, the
+   * standard colourblind-safe pair), which frees green to mean only slack —
+   * the moment the app is named for. Never colour anything by station kind.
+   */
   --ground: var(--sn-navy-deep);
   --ink: #eaf2f7;
   --ink-soft: rgba(234, 242, 247, 0.78);
-  --ink-faint: var(--sn-steel);
+  --ink-faint: #7d9cb8;
   --surface: #06203f;
   --hairline: #14375c;
   --accent: var(--sn-leaf);
-  --rising: var(--sn-leaf);
-  --falling: #7fb4d8;
+  --flood: #4a9fd8;
+  --ebb: #e8a33d;
+  --go: #88b868;
+  --rising: var(--flood);
+  --falling: var(--ebb);
   --curve: var(--sn-sky);
   --selected: var(--sn-harbor);
-  --warn: #e8a33d;
+  /* Red-leaning, deliberately NOT --ebb. The two were the same hex, and a
+     sunset chip sat beside a max-ebb chip in one list reading identically.
+     Warning is its own axis; it must never be mistakable for a direction.
+     5.89:1 on --ground, 22° of hue away from --ebb. */
+  --warn: #ef6f4a;
 
   --radius: 12px;
   color-scheme: dark;
@@ -79,8 +89,8 @@ body {
 }
 
 h1, h2 {
-  font-family: var(--font-display);
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-weight: 600;
   line-height: 1.05;
   letter-spacing: -0.02em;
   margin: 0;
@@ -94,10 +104,10 @@ a { color: var(--accent); text-underline-offset: 2px; }
 
 abbr { text-decoration: none; font-size: 0.46em; margin-left: 0.18em; color: var(--ink-faint); }
 
-/* The eyebrow: Geist Mono, uppercase, wide tracking. The house signature. */
+/* The eyebrow: system mono, uppercase, wide tracking. The house signature. */
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -213,7 +223,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
 
 .gate-fine {
   color: rgba(252, 252, 252, 0.62);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   margin: 2rem 0 0;
 }
 
@@ -294,7 +304,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .place-star:hover { border-color: var(--sn-steel); }
 .place-star.starred { color: var(--sn-leaf); }
 
-.match { font-size: 0.85rem; margin: 0.6rem 0 0; color: var(--ink-faint); }
+.match { font-size: 0.875rem; margin: 0.6rem 0 0; color: var(--ink-faint); }
 .match.approximate, .match.nearest { color: var(--sn-leaf); }
 
 /* The multi-match chooser: a link, not a <select> — same treatment as
@@ -304,7 +314,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
   background: transparent;
   border: none;
   color: var(--sn-leaf);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   text-align: left;
   cursor: pointer;
   padding: 0;
@@ -330,7 +340,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
   border-radius: 8px;
   padding: 0.4rem 0.6rem;
   color: var(--ink-soft);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   cursor: pointer;
   text-align: left;
 }
@@ -353,7 +363,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
 
 .dir {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.875rem;
   font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -366,11 +376,11 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .compass-arrow.flood { color: var(--rising); }
 .compass-arrow.ebb { color: var(--falling); }
 
-/* The one number the app exists to show, in the display serif. Compact now
-   that it sits in the right rail beside the name, not stranded on its own row. */
+/* The one number the app exists to show. Compact now that it sits in the
+   right rail beside the name, not stranded on its own row. */
 .value {
-  font-family: var(--font-display);
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-size: clamp(1.9rem, 7vw, 2.6rem);
   line-height: 1;
@@ -384,11 +394,11 @@ button.ghost:hover { border-color: var(--sn-paper); }
 
 .chart-panel { padding: 1.25rem 1rem 0.75rem; }
 .chart { width: 100%; height: auto; display: block; }
-.chart-note { margin: 0.5rem 0.25rem 0; font-size: 0.8rem; line-height: 1.4; }
+.chart-note { margin: 0.5rem 0.25rem 0; font-size: 0.875rem; line-height: 1.4; }
 .chart .grid { stroke: var(--hairline); stroke-width: 1; }
 .chart .axis {
   fill: var(--ink-faint);
-  font-size: 11px;
+  font-size: 14px;
   font-family: var(--font-mono);
 }
 .chart .curve { fill: none; stroke: var(--curve); stroke-width: 2.25; stroke-linejoin: round; }
@@ -398,7 +408,10 @@ button.ghost:hover { border-color: var(--sn-paper); }
 /* Flood/ebb reuse the same rising/falling semantic colours as the tide dots
    above - flood is water rising toward high, ebb is water falling toward low. */
 .chart .grid.zero { stroke-opacity: 0.5; }
-.chart .dot.slack { fill: var(--ink); }
+/* Slack is --go on every surface — glyph, chart dot, event pill, phase pill.
+   It was green on the glyph and grey everywhere else, so one card showed a
+   green gate beside a grey pill reading "slack". */
+.chart .dot.slack { fill: var(--go); }
 .chart .dot.flood { fill: var(--rising); }
 .chart .dot.ebb { fill: var(--falling); }
 .chart .nowline { stroke: var(--ink); stroke-width: 1.25; opacity: 0.4; }
@@ -416,7 +429,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
   margin-bottom: 1rem;
 }
 .events h2 { font-size: 1.35rem; }
-.events-date { color: var(--ink-faint); font-size: 0.85rem; margin: 0.3rem 0 0; }
+.events-date { color: var(--ink-faint); font-size: 0.875rem; margin: 0.3rem 0 0; }
 
 .pager { display: flex; gap: 0.35rem; }
 .pager button {
@@ -431,7 +444,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
 }
 .pager button:hover:not(:disabled) { border-color: var(--sn-steel); color: var(--ink); }
 .pager button:disabled { opacity: 0.35; cursor: default; }
-.pager .today { font-size: 0.8rem; }
+.pager .today { font-size: 0.875rem; }
 
 .event-rows { list-style: none; margin: 0; padding: 0; }
 
@@ -472,7 +485,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
 
 .event .pill {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -482,13 +495,16 @@ button.ghost:hover { border-color: var(--sn-paper); }
 }
 .event .pill.high { background: var(--rising); }
 .event .pill.low { background: var(--falling); }
-.event .pill.sun { background: var(--warn); }
+/* Sunrise/sunset is not a warning and not a direction — it shares this list
+   with the flood/ebb chips, so it stays off the direction axis entirely and
+   takes a neutral. It used to take --warn, which was --ebb's hex. */
+.event .pill.sun { background: var(--ink-faint); }
 .event .pill.flood { background: var(--rising); }
 .event .pill.ebb { background: var(--falling); }
-.event .pill.slack { background: var(--ink); }
+.event .pill.slack { background: var(--go); }
 /* Sized to the pill glyph, colour inherited from the pill text (navy on the
    flood/ebb fill) — not the green/blue the standalone arrows carry. */
-.event .pill .compass-arrow { font-size: 0.85rem; vertical-align: -0.05em; }
+.event .pill .compass-arrow { font-size: 0.875rem; vertical-align: -0.05em; }
 .event time,
 .event .height {
   font-family: var(--font-mono);
@@ -582,7 +598,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
   border: none;
   color: var(--sn-leaf);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.875rem;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -636,15 +652,20 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .search-label { color: var(--sn-leaf); }
 .search-empty { color: var(--ink-faint); }
 
-/* The card itself: one fixed gradient for every card (see StationCard.tsx —
-   deliberate, pending a decision on what a tint would even mean). */
+/* Kind is the shape; state is the colour. Never the other way round. */
+.station-glyph { width: 26px; height: 26px; flex: 0 0 auto; margin-top: 2px; color: var(--ink-faint); }
+.station-glyph.rising, .station-glyph.flood { color: var(--flood); }
+.station-glyph.falling, .station-glyph.ebb { color: var(--ebb); }
+.station-glyph.slack { color: var(--go); }
+.station-glyph.unknown { color: var(--ink-faint); }
+
 .station-card {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
   width: 100%;
-  background: linear-gradient(155deg, #123763 0%, #0d2b4d 55%, #0a2545 100%);
+  background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: 10px;
   padding: 0.85rem 1rem;
@@ -654,15 +675,13 @@ button.ghost:hover { border-color: var(--sn-paper); }
 .station-card:hover { border-color: var(--sn-steel); }
 .station-card.current { border-color: var(--sn-leaf); }
 
-
-.station-card-main { display: flex; flex-direction: column; min-width: 0; gap: 0.25rem; }
-.station-card-title { margin: 0; display: flex; align-items: baseline; gap: 0.6rem; }
-.station-card-name { font-family: var(--font-display); font-weight: 500; font-size: 1.05rem; }
+.station-card-main { display: flex; flex-direction: column; min-width: 0; gap: 0.15rem; flex: 1 1 auto; }
+.station-card-name { font-family: var(--font-sans); font-weight: 600; font-size: 17px; margin: 0; }
 
 .pill {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 0.7rem;
+  font-size: 0.875rem;
   color: var(--ink-faint);
   border: 1px solid var(--hairline);
   border-radius: 999px;
@@ -670,30 +689,32 @@ button.ghost:hover { border-color: var(--sn-paper); }
   white-space: nowrap;
 }
 
-.station-card-context { margin: 0; font-size: 0.82rem; color: var(--ink-faint); }
-.station-card-next { margin: 0; font-size: 0.82rem; color: var(--ink-soft); }
-
+.station-card-context { margin: 0; font-size: 0.875rem; color: var(--ink-faint); }
+.station-card-dist { margin: 0; font-size: 0.875rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .station-card-reading {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.2rem;
+  gap: 0.15rem;
   flex-shrink: 0;
+  text-align: right;
 }
 .station-card-value {
-  font-family: var(--font-display);
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  font-size: 1.3rem;
+  font-size: 26px;
+  line-height: 1.1;
 }
+.station-card-next { margin: 0; font-size: 0.875rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 /* A gate with no speed to show (derived gate, or slack) tags its phase in a
    compact pill rather than a display-size word — the word widened the reading
    column and wrapped the station name. Coloured like the tide arrows: flood
-   rises, ebb falls, slack neutral; the border tracks the text via currentColor. */
+   rises, ebb falls, slack is --go; the border tracks the text via currentColor. */
 .phase-pill {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   white-space: nowrap;
@@ -704,7 +725,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
 }
 .phase-pill.flood { color: var(--rising); }
 .phase-pill.ebb { color: var(--falling); }
-.phase-pill.slack { color: var(--ink-faint); }
+.phase-pill.slack { color: var(--go); }
 
 /* ----------------------------------------------------------- location card */
 
@@ -713,20 +734,22 @@ button.ghost:hover { border-color: var(--sn-paper); }
   flex-direction: column;
   align-items: flex-start;
   gap: 0.4rem;
-  background: linear-gradient(155deg, rgba(232, 163, 61, 0.16), rgba(232, 163, 61, 0.04));
-  border: 1px solid rgba(232, 163, 61, 0.4);
+  /* Literal --warn (#ef6f4a) at alpha — a var() can't be alpha-adjusted here
+     without a second token; keep in step if --warn moves. */
+  background: linear-gradient(155deg, rgba(239, 111, 74, 0.16), rgba(239, 111, 74, 0.04));
+  border: 1px solid rgba(239, 111, 74, 0.4);
   border-radius: 10px;
   padding: 1rem;
 }
 .location-card.unavailable .pin-off { color: var(--warn); }
 .location-title {
-  font-family: var(--font-display);
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-weight: 600;
   font-size: 1.05rem;
   margin: 0.2rem 0 0;
 }
 .location-body { margin: 0; color: var(--ink-soft); font-size: 0.88rem; }
-.location-action { margin: 0; color: var(--warn); font-size: 0.82rem; }
+.location-action { margin: 0; color: var(--warn); font-size: 0.875rem; }
 
 /* Askable: an invitation, not an alarm — calm border, no amber warn tint. */
 .location-card.askable {
@@ -746,7 +769,7 @@ button.ghost:hover { border-color: var(--sn-paper); }
   align-self: flex-start;
   border-radius: 999px;
   padding: 0.5rem 1.1rem;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   background: var(--sn-leaf);
@@ -809,7 +832,7 @@ dialog.settings::backdrop { background: rgba(0, 24, 60, 0.55); }
 
 /* ------------------------------------------------------------------ footer */
 
-footer { font-size: 0.82rem; padding: 0 0.25rem; color: var(--ink-faint); }
+footer { font-size: 0.875rem; padding: 0 0.25rem; color: var(--ink-faint); }
 footer p { margin: 0.5rem 0; }
 footer .warn { color: var(--ink-soft); }
 
@@ -914,7 +937,7 @@ footer .warn { color: var(--ink-soft); }
 }
 .offline-status:hover { opacity: 1; }
 .offline-status-icon { font-size: 0.9rem; }
-.offline-status-text { font-size: 0.8rem; white-space: nowrap; }
+.offline-status-text { font-size: 0.875rem; white-space: nowrap; }
 .offline-status.muted { opacity: 0.7; }
 .offline-status.ok .offline-status-icon { color: #7bd88f; }
 .offline-status.warn .offline-status-icon,
@@ -938,11 +961,11 @@ footer .warn { color: var(--ink-soft); }
 .offline-meter.warn .offline-meter-fill { background: #e06a5b; }
 .offline-meter-pct,
 .offline-meter-label {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   opacity: 0.8;
   margin-left: 0.4rem;
 }
-.offline-manager .offline-through { opacity: 0.75; font-size: 0.85rem; }
+.offline-manager .offline-through { opacity: 0.75; font-size: 0.875rem; }
 .offline-actions { display: flex; gap: 0.5rem; margin: 0.5rem 0; }
 .offline-list { list-style: none; padding: 0; margin: 0 0 0.75rem; }
 .offline-row {
@@ -952,7 +975,7 @@ footer .warn { color: var(--ink-soft); }
   gap: 0.75rem;
   padding: 0.35rem 0;
 }
-.offline-row-status { opacity: 0.7; font-size: 0.8rem; }
+.offline-row-status { opacity: 0.7; font-size: 0.875rem; }
 .offline-foot { margin-top: 0.5rem; }
 
 /* Map view — full-screen like Search; the canvas takes everything between
@@ -981,6 +1004,6 @@ footer .warn { color: var(--ink-soft); }
 .map-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: var(--surface); }
 .map-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--surface); }
 .map-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--surface); }
-.map-popup-name { font-family: var(--font-display); font-size: 0.95rem; }
-.map-popup-context { color: var(--ink-soft); font-size: 0.8rem; margin-top: 0.15rem; }
-.map-popup-reading { font-size: 0.85rem; margin-top: 0.3rem; }
+.map-popup-name { font-family: var(--font-sans); font-weight: 600; font-size: 0.95rem; }
+.map-popup-context { color: var(--ink-soft); font-size: 0.875rem; margin-top: 0.15rem; }
+.map-popup-reading { font-size: 0.875rem; margin-top: 0.3rem; }

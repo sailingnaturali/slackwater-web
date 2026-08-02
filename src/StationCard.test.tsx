@@ -39,16 +39,28 @@ describe("StationCard", () => {
     expect(html).toMatch(/\d{1,2}:\d{2} (AM|PM)/);
   });
 
-  it("shows a distance pill only when km is given", () => {
+  it("shows distance with the identity, not as a pill", () => {
     const withKm = renderToStaticMarkup(
       <StationCard station={station} km={12} state={state} units="imperial" onSelect={() => {}} />,
     );
-    expect(withKm).toContain("pill");
+    expect(withKm).toContain("station-card-dist");
+    expect(withKm).not.toContain('class="pill"');
 
     const withoutKm = renderToStaticMarkup(
       <StationCard station={station} state={state} units="imperial" onSelect={() => {}} />,
     );
-    expect(withoutKm).not.toContain("pill");
+    expect(withoutKm).not.toContain("station-card-dist");
+  });
+
+  it("renders a kind glyph whose colour tracks state, not kind", () => {
+    const rising = renderToStaticMarkup(
+      <StationCard station={station} state={state} units="imperial" onSelect={() => {}} />,
+    );
+    const falling = renderToStaticMarkup(
+      <StationCard station={station} state={{ ...state, rising: false }} units="imperial" onSelect={() => {}} />,
+    );
+    expect(rising).toContain("station-glyph rising");
+    expect(falling).toContain("station-glyph falling");
   });
 
   it("marks the falling direction when the tide is dropping", () => {
@@ -131,6 +143,19 @@ describe("StationCard — currents", () => {
     // No display-size value: the derived gate has no speed to render.
     expect(derived).not.toContain("2.1");
     expect(derived).not.toContain("station-card-value");
+  });
+
+  // The glyph's FORM is identity. It used to be `current ? "current" : "tide"`,
+  // so a gate whose reading had not arrived — every search result, and any gate
+  // before useChsCurrent resolved, i.e. forever offline — drew the tide dome.
+  it("draws the current glyph with no reading at all, and tones it unknown", () => {
+    const html = renderToStaticMarkup(
+      <StationCard station={gate} units="metric" onSelect={() => {}} />,
+    );
+    expect(html).toContain("station-glyph unknown");
+    // The dome is the tide form; a gate must never render it.
+    expect(html).toContain('aria-label="Current station"');
+    expect(html).not.toContain('aria-label="Tide station"');
   });
 
   it("a gate with a companion tide keeps the current as the only reading, tide as a next-line", () => {

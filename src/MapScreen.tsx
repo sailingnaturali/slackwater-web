@@ -89,7 +89,7 @@ export default function MapScreen({
       popup.setLngLat(coords).setHTML(previewHtml(station, new Date(), units, speedUnit)).addTo(map);
     };
     const stationAt = (point: maplibregl.Point) => {
-      const hit = map.queryRenderedFeatures(point, { layers: ["station-dots"] })[0];
+      const hit = map.queryRenderedFeatures(point, { layers: ["station-dots-current", "station-dots-tide"] })[0];
       const slug = hit?.properties?.slug as string | undefined;
       const station = slug ? stations.find((s) => s.slug === slug) : undefined;
       if (!hit || !station) return null;
@@ -122,7 +122,8 @@ export default function MapScreen({
     });
 
     if (canHover) {
-      map.on("mouseenter", "station-dots", (e) => {
+      const pinLayerIds = ["station-dots-current", "station-dots-tide"];
+      map.on("mouseenter", pinLayerIds, (e) => {
         map.getCanvas().style.cursor = "pointer";
         const f = e.features?.[0];
         const slug = f?.properties?.slug as string | undefined;
@@ -131,7 +132,7 @@ export default function MapScreen({
           showPreview(station, (f.geometry as GeoJSON.Point).coordinates.slice(0, 2) as [number, number]);
         }
       });
-      map.on("mouseleave", "station-dots", () => {
+      map.on("mouseleave", pinLayerIds, () => {
         map.getCanvas().style.cursor = "";
         popup.remove();
       });

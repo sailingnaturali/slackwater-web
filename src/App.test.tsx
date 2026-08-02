@@ -2,9 +2,10 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { createElement, act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createRoot, type Root } from "react-dom/client";
-import { heldWhileLoading, heroMatchFor, App } from "./App";
+import { heldWhileLoading, heroMatchFor, App, initialStation, FALLBACK } from "./App";
 import { distanceKm, type Match } from "./tides";
 import { resolvedNoaaCurrentStations } from "./noaaCurrents";
+import { chsCurrentStations } from "./chsStations";
 
 // react-dom/client's createRoot renders outside React's own act() batching
 // unless told this is a test environment — mirrors SearchScreen.test.tsx.
@@ -108,6 +109,52 @@ describe("heroMatchFor", () => {
 
   it("falls back to the raw match before a place resolves", () => {
     expect(heroMatchFor(null, match, station)).toEqual({ km: 3.2, quality: "good" });
+  });
+});
+
+describe("initialStation", () => {
+  const a = { slug: "everett", name: "Everett" } as never;
+  const b = { slug: "friday-harbor", name: "Friday Harbor" } as never;
+  const all = [a, b];
+  const empty = {
+    starred: [],
+    recent: [],
+    lastLocationSlug: null,
+    lastViewedSlug: null,
+    placeStations: {},
+  };
+
+  it("prefers a deep link over everything", () => {
+    const saved = { ...empty, recent: ["everett"] };
+    expect(initialStation({ station: b } as never, saved, all)).toBe(b);
+  });
+
+  it("falls back to the last viewed station", () => {
+    expect(initialStation(null, { ...empty, recent: ["everett"] }, all)).toBe(a);
+  });
+
+  it("falls back to the fixed station when nothing is remembered", () => {
+    expect(initialStation(null, empty, all)).toBe(FALLBACK);
+  });
+
+  it("ignores a remembered slug that no longer resolves", () => {
+    expect(initialStation(null, { ...empty, recent: ["sunk-island"] }, all)).toBe(FALLBACK);
+  });
+
+  // The default pool used to be `resolvedStations` — bundled NOAA TIDE stations
+  // only — so a gate or CHS port cold-loaded as Friday Harbor however recently
+  // you had it open. Uses the real default pool deliberately: that argument is
+  // the bug.
+  it("resolves a last-viewed current gate from the default pool", () => {
+    const gate = chsCurrentStations[0];
+    expect(initialStation(null, { ...empty, lastViewedSlug: gate.slug })).toBe(gate);
+  });
+
+  // Starred stations are kept out of `recent` on purpose, so reading recent[0]
+  // alone meant starring your home station pinned the cold load to FALLBACK.
+  it("reopens a starred station that was last viewed", () => {
+    const saved = { ...empty, starred: ["everett"], recent: [], lastViewedSlug: "everett" };
+    expect(initialStation(null, saved, all)).toBe(a);
   });
 });
 

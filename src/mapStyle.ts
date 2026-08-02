@@ -1,6 +1,4 @@
-import type { Candidate } from "./place";
-import { isChsCurrent } from "./chsStations";
-import { isNoaaCurrent } from "./noaaCurrents";
+import { isCurrentStation, type Candidate } from "./place";
 
 export type StyleLayer = { id: string; type: string; [k: string]: unknown };
 export type StyleLike = {
@@ -14,9 +12,6 @@ export function seascapeStyleUrl(unit: "ft" | "m"): string {
   return `https://tiles.openwaters.io/seascape/style.json?unit=${unit}`;
 }
 
-// A pin is "current" for a CHS gate or a NOAA current station, "tide" otherwise.
-const isCurrentKind = (s: Candidate) => isChsCurrent(s) || isNoaaCurrent(s);
-
 /** Every station the app can name, as map pins. Identity only — no readings. */
 export function pinFeatures(stations: Candidate[]): GeoJSON.FeatureCollection {
   return {
@@ -27,17 +22,29 @@ export function pinFeatures(stations: Candidate[]): GeoJSON.FeatureCollection {
       properties: {
         slug: s.slug,
         name: s.name,
-        kind: isCurrentKind(s) ? "current" : "tide",
+        // A pin is "current" for a CHS gate or a NOAA current station, "tide"
+        // otherwise — identity, the same predicate the list card's glyph uses.
+        kind: isCurrentStation(s) ? "current" : "tide",
       },
     })),
   };
 }
 
-// Land is a classic paper-chart cream over navy water; pins from the app's
-// leaf/steel design tokens.
+// Land is a classic paper-chart cream over navy water.
 const LAND_TONE = "#f5ecd7";
 const WATER_TONE = "#0b1a2b";
-const PIN = { tide: "#7fb3d5", current: "#8fd0a0" };
+
+// A pin's COLOUR is the water's state, never the station's kind — kind is the
+// pin's form (filled = current, hollow ring = tide). `pinFeatures` carries
+// identity only and CHS readings are fetched online (see mapPopup.pinReading,
+// which returns null for every CHS station), so most Salish Sea pins have no
+// knowable state at draw time. They draw neutral, which honestly means "unknown
+// — tap it" rather than asserting a state we don't have.
+//
+// ponytail: filled-vs-hollow circles, not the wave/dome glyphs the list uses.
+// Matching those exactly needs SDF icons via map.addImage + icon-color; do that
+// if pin kind ever gets misread in the field.
+const PIN_UNKNOWN = "#7d9cb8";
 
 function landSource(landUrl: string) {
   return {
@@ -56,15 +63,32 @@ const landLayer: StyleLayer = {
 };
 
 function pinLayers(style: StyleLike): StyleLayer[] {
-  const dots: StyleLayer = {
-    id: "station-dots",
+  const dotBase = {
     type: "circle",
     source: "stations",
     paint: {
       "circle-radius": 5,
-      "circle-color": ["match", ["get", "kind"], "current", PIN.current, PIN.tide],
+      "circle-color": PIN_UNKNOWN,
       "circle-stroke-width": 1.5,
       "circle-stroke-color": WATER_TONE,
+    },
+  };
+  const currentDots: StyleLayer = {
+    ...dotBase,
+    id: "station-dots-current",
+    filter: ["==", ["get", "kind"], "current"],
+    paint: { ...dotBase.paint, "circle-opacity": 1 },
+  };
+  const tideDots: StyleLayer = {
+    ...dotBase,
+    id: "station-dots-tide",
+    filter: ["==", ["get", "kind"], "tide"],
+    // A ring: no fill, the pin's colour moved onto the stroke.
+    paint: {
+      ...dotBase.paint,
+      "circle-opacity": 0,
+      "circle-stroke-width": 2,
+      "circle-stroke-color": PIN_UNKNOWN,
     },
   };
   // Labels need glyphs — that's the decisive signal (the local fallback
@@ -72,7 +96,7 @@ function pinLayers(style: StyleLike): StyleLayer[] {
   // style does carry glyphs, prefer its own symbol layers' font stack; our
   // vendored fixture is trimmed to id/type/source only (Step 1), so no
   // sample survives there — fall back to a default glyph-server font name.
-  if (!style.glyphs) return [dots];
+  if (!style.glyphs) return [currentDots, tideDots];
   const sample = style.layers.find(
     (l) => l.type === "symbol" && (l.layout as Record<string, unknown> | undefined)?.["text-font"],
   );
@@ -86,14 +110,16 @@ function pinLayers(style: StyleLike): StyleLayer[] {
     layout: {
       "text-field": ["get", "name"],
       "text-font": sample ? (sample.layout as { "text-font": unknown })["text-font"] : DEFAULT_LABEL_FONT,
-      "text-size": 11,
+      // The 14px floor applies here too — map labels are text like any other,
+      // and tokens.test.ts only scans styles.css, so nothing else enforces it.
+      "text-size": 14,
       "text-offset": [0, 1.1],
       "text-anchor": "top",
       "text-optional": true,
     },
     paint: { "text-color": "#e8e4d8", "text-halo-color": WATER_TONE, "text-halo-width": 1 },
   };
-  return [dots, labels];
+  return [currentDots, tideDots, labels];
 }
 
 /**
