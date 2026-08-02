@@ -8,6 +8,7 @@ import {
   resolvedStations,
   stations,
   type Match,
+  type ResolvedStation,
   type Station,
   type TideState,
 } from "./tides";
@@ -68,7 +69,7 @@ export const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? s
 export function initialStation(
   urlMatch: { station: ViewStation } | null,
   saved: Saved,
-  all: ViewStation[] = resolvedStations,
+  all: ResolvedStation[] = resolvedStations,
 ): ViewStation {
   if (urlMatch) return urlMatch.station;
   const slug = saved.recent[0];
