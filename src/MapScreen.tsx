@@ -77,8 +77,19 @@ export default function MapScreen({
         map.addImage(id, pinGlyphImage(kind), { sdf: true, pixelRatio: PIN_PIXEL_RATIO });
       }
     };
+    // The same swap drops the stations source's data back to whatever `pins`
+    // was when composeStyle ran. If the state pass resolved while the new style
+    // was still loading, its setData hit a source that didn't exist yet
+    // (maplibre defers Style._load to a rAF) and was swallowed by `?.` — every
+    // pin grey for the session. Reapplying on each style load closes that race;
+    // setData fires sourcedata, not styledata, so there's no recursion.
+    const applyPins = () =>
+      (map.getSource("stations") as maplibregl.GeoJSONSource | undefined)?.setData(pins);
     ensurePinImages();
-    map.on("styledata", ensurePinImages);
+    map.on("styledata", () => {
+      ensurePinImages();
+      applyPins();
+    });
 
     let gone = false;
 
@@ -98,8 +109,8 @@ export default function MapScreen({
       .then((states) => {
         if (gone) return;
         pins = pinFeatures(stations, states);
-        const src = map.getSource("stations") as maplibregl.GeoJSONSource | undefined;
-        src?.setData(pins);
+        // Paints on first load, when no further style ever arrives (offline).
+        applyPins();
       })
       .catch(() => {
         /* every pin stays neutral, which is the honest unknown */
