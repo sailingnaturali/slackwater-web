@@ -34,10 +34,9 @@ export default defineConfig({
       },
       workbox: {
         // The station data and the engine are the whole product offline, so they
-        // are precached rather than fetched on demand. woff2 is in here too —
-        // the self-hosted fonts (see README: no webfont request, on purpose)
-        // otherwise fail with ERR_INTERNET_DISCONNECTED the moment the network
-        // actually goes away, which the offline smoke check caught.
+        // are precached rather than fetched on demand. There is no woff2 entry:
+        // the app uses the system font stack, so there is no font file to miss
+        // when the network goes away.
         //
         // pmtiles is deliberately NOT globbed here: a precache entry is a plain
         // 200 with the full body and no Range support, but pmtiles reads the
@@ -47,7 +46,7 @@ export default defineConfig({
         // precached chunk (MapScreen's ~1 MB JS) is well under the default 2 MB
         // cap, so no maximumFileSizeToCacheInBytes bump is needed now that the
         // 4.6 MB pmtiles file isn't in this list.
-        globPatterns: ["**/*.{js,css,html,svg,png,json,woff2}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,json}"],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.endsWith(".pmtiles"),
