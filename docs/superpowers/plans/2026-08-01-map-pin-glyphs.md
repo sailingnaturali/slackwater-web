@@ -270,7 +270,9 @@ rasterised, because addImage's sdf mode reads alpha as distance and a
 - Consumes: `Tone` from `src/StationGlyph.tsx`; `Candidate`/`isCurrentStation` from `src/place.ts`; `predict` from `src/tides.ts`; `isNoaaCurrent`/`noaaCurrentState` from `src/noaaCurrents.ts`; `isChs`/`isChsCurrent` from `src/chsStations.ts`; `chsTideDay`/`chsCurrentDay` and `ChsCache`/`indexedDbCache` from `src/chs/*`.
 - Produces:
   - `export function syncTone(station: Candidate, now: Date): Tone` — `"unknown"` for anything not resolvable on-device.
-  - `export async function resolvePinStates(stations: Candidate[], now: Date, deps?: { cache?: ChsCache }): Promise<Record<string, Tone>>` — slug → tone, for every station it can resolve. Task 3 feeds this to `pinFeatures`; Task 4 calls it.
+  - `export async function resolvePinStates(stations: Candidate[], now: Date, deps?: { cache?: ChsCache; fetchFn?: typeof fetch }): Promise<Record<string, Tone>>` — slug → tone, for every station it can resolve. Task 3 feeds this to `pinFeatures`; Task 4 calls it with no deps.
+
+`fetchFn` exists so tests can stay offline and deterministic: without it, the CHS adapter attempts a real network call under jsdom. It is passed straight through to `chsTideDay` / `chsCurrentDay`, which already accept it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -286,6 +288,9 @@ import { candidates } from "./place";
 import { isChs } from "./chsStations";
 
 const NOW = new Date("2026-08-01T12:00:00Z");
+
+/** Offline by construction: no test may touch the network. */
+const offline: typeof fetch = () => Promise.reject(new Error("offline"));
 
 describe("syncTone", () => {
   it("resolves a bundled NOAA tide station to rising or falling", () => {
@@ -307,23 +312,25 @@ describe("syncTone", () => {
 describe("resolvePinStates", () => {
   it("resolves every bundled station and omits none silently", async () => {
     const bundled = [resolvedStations[0], resolvedNoaaCurrentStations[0]];
-    const states = await resolvePinStates(bundled, NOW, { cache: memoryCache() });
+    const states = await resolvePinStates(bundled, NOW, { cache: memoryCache(), fetchFn: offline });
     expect(Object.keys(states).sort()).toEqual(bundled.map((s) => s.slug).sort());
     for (const tone of Object.values(states)) expect(tone).not.toBe("unknown");
   });
 
   it("reports unknown rather than guessing when the CHS cache misses", async () => {
     const chs = candidates.find(isChs)!;
-    // An empty cache and no network: the adapter cannot serve a reading.
-    const states = await resolvePinStates([chs], NOW, { cache: memoryCache() });
+    // Empty cache, no network: the adapter cannot serve a reading.
+    const states = await resolvePinStates([chs], NOW, { cache: memoryCache(), fetchFn: offline });
     expect(states[chs.slug]).toBe("unknown");
   });
 
   it("never rejects — one station's failure must not blank the whole map", async () => {
     const chs = candidates.find(isChs)!;
     const mixed = [resolvedStations[0], chs];
-    const states = await resolvePinStates(mixed, NOW, { cache: memoryCache() });
+    const states = await resolvePinStates(mixed, NOW, { cache: memoryCache(), fetchFn: offline });
     expect(Object.keys(states)).toHaveLength(2);
+    // The bundled station still resolved despite its neighbour failing.
+    expect(states[resolvedStations[0].slug]).not.toBe("unknown");
   });
 });
 ```
@@ -368,10 +375,12 @@ export function syncTone(station: Candidate, now: Date): Tone {
   return predict(station, now).rising ? "rising" : "falling";
 }
 
-async function chsTone(station: ChsStation, now: Date, cache: ChsCache): Promise<Tone> {
+type ChsDeps = { cache: ChsCache; fetchFn?: typeof fetch };
+
+async function chsTone(station: ChsStation, now: Date, deps: ChsDeps): Promise<Tone> {
   try {
-    if (isChsCurrent(station)) return (await chsCurrentDay(station, now, { cache })).phase;
-    return (await chsTideDay(station, now, { cache })).rising ? "rising" : "falling";
+    if (isChsCurrent(station)) return (await chsCurrentDay(station, now, deps)).phase;
+    return (await chsTideDay(station, now, deps)).rising ? "rising" : "falling";
   } catch {
     // Offline with nothing cached for this station. The honest answer.
     return "unknown";
@@ -381,15 +390,15 @@ async function chsTone(station: ChsStation, now: Date, cache: ChsCache): Promise
 export async function resolvePinStates(
   stations: Candidate[],
   now: Date,
-  deps: { cache?: ChsCache } = {},
+  deps: { cache?: ChsCache; fetchFn?: typeof fetch } = {},
 ): Promise<Record<string, Tone>> {
-  const cache = deps.cache ?? indexedDbCache();
+  const chsDeps: ChsDeps = { cache: deps.cache ?? indexedDbCache(), fetchFn: deps.fetchFn };
   const states: Record<string, Tone> = {};
   const pending: Promise<void>[] = [];
   for (const s of stations) {
     if (isChs(s)) {
       pending.push(
-        chsTone(s, now, cache).then((tone) => {
+        chsTone(s, now, chsDeps).then((tone) => {
           states[s.slug] = tone;
         }),
       );
@@ -406,9 +415,9 @@ export async function resolvePinStates(
 - [ ] **Step 4: Run it to verify it passes**
 
 Run: `npx vitest run src/pinState.test.ts`
-Expected: PASS, six assertions.
+Expected: PASS, seven assertions.
 
-If a CHS test hangs rather than failing fast, the adapter is attempting a network fetch under jsdom. Pass a `fetchFn` that rejects immediately via the existing `deps` plumbing on `chsTideDay`/`chsCurrentDay` rather than adding a timeout — report it if that plumbing is not reachable from `resolvePinStates`'s signature.
+Every CHS test passes `fetchFn: offline`, so no test touches the network. If one still hangs, something is reaching the network by another route — report it rather than adding a timeout.
 
 - [ ] **Step 5: Typecheck, full suite, build**
 
