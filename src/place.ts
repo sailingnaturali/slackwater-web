@@ -60,8 +60,16 @@ export function stationsNear(place: Place, limit: number): Candidate[] {
     .map((r) => r.station);
 }
 
-/** A station that reports current, not tide height — CHS gate or bundled NOAA. */
-const isCurrentStation = (s: Candidate) => isChsCurrent(s) || isNoaaCurrent(s);
+/**
+ * A station that reports current, not tide height — CHS gate or bundled NOAA.
+ *
+ * Identity, never a reading. This is what the card glyph and the map pin both
+ * key their FORM off: a gate you have never opened has no `current` yet, and
+ * deriving kind from "did data arrive" drew the tide dome on every gate,
+ * permanently, offline. Lives here because both consumers already import
+ * `Candidate` from this module — no card->map dependency.
+ */
+export const isCurrentStation = (s: Candidate) => isChsCurrent(s) || isNoaaCurrent(s);
 
 export interface PositionMatch {
   place: Place;

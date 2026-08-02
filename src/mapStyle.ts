@@ -1,6 +1,4 @@
-import type { Candidate } from "./place";
-import { isChsCurrent } from "./chsStations";
-import { isNoaaCurrent } from "./noaaCurrents";
+import { isCurrentStation, type Candidate } from "./place";
 
 export type StyleLayer = { id: string; type: string; [k: string]: unknown };
 export type StyleLike = {
@@ -14,9 +12,6 @@ export function seascapeStyleUrl(unit: "ft" | "m"): string {
   return `https://tiles.openwaters.io/seascape/style.json?unit=${unit}`;
 }
 
-// A pin is "current" for a CHS gate or a NOAA current station, "tide" otherwise.
-const isCurrentKind = (s: Candidate) => isChsCurrent(s) || isNoaaCurrent(s);
-
 /** Every station the app can name, as map pins. Identity only — no readings. */
 export function pinFeatures(stations: Candidate[]): GeoJSON.FeatureCollection {
   return {
@@ -27,7 +22,9 @@ export function pinFeatures(stations: Candidate[]): GeoJSON.FeatureCollection {
       properties: {
         slug: s.slug,
         name: s.name,
-        kind: isCurrentKind(s) ? "current" : "tide",
+        // A pin is "current" for a CHS gate or a NOAA current station, "tide"
+        // otherwise — identity, the same predicate the list card's glyph uses.
+        kind: isCurrentStation(s) ? "current" : "tide",
       },
     })),
   };
@@ -113,7 +110,9 @@ function pinLayers(style: StyleLike): StyleLayer[] {
     layout: {
       "text-field": ["get", "name"],
       "text-font": sample ? (sample.layout as { "text-font": unknown })["text-font"] : DEFAULT_LABEL_FONT,
-      "text-size": 11,
+      // The 14px floor applies here too — map labels are text like any other,
+      // and tokens.test.ts only scans styles.css, so nothing else enforces it.
+      "text-size": 14,
       "text-offset": [0, 1.1],
       "text-anchor": "top",
       "text-optional": true,

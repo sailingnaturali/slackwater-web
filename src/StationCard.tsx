@@ -1,5 +1,5 @@
 import type { TideState } from "./tides";
-import type { Candidate } from "./place";
+import { isCurrentStation, type Candidate } from "./place";
 import { type CurrentState } from "./chs/current";
 import { CompassArrow } from "./CompassArrow";
 import { StationGlyph, type Tone } from "./StationGlyph";
@@ -79,7 +79,12 @@ export function StationCard({
       onClick={onSelect}
       aria-current={selected ? "true" : undefined}
     >
-      <StationGlyph kind={current ? "current" : "tide"} tone={tone} />
+      {/* Form from IDENTITY, tone from the reading. Kind used to be
+          `current ? …` — a live reading, so a gate drew the tide dome until its
+          fetch resolved, and every search result drew it forever (search passes
+          no `current` at all). Tone stays reading-derived: `unknown` is the
+          honest answer before anything has loaded. */}
+      <StationGlyph kind={isCurrentStation(station) ? "current" : "tide"} tone={tone} />
 
       <div className="station-card-main">
         <p className="station-card-name">{station.name}</p>

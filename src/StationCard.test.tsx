@@ -145,6 +145,19 @@ describe("StationCard — currents", () => {
     expect(derived).not.toContain("station-card-value");
   });
 
+  // The glyph's FORM is identity. It used to be `current ? "current" : "tide"`,
+  // so a gate whose reading had not arrived — every search result, and any gate
+  // before useChsCurrent resolved, i.e. forever offline — drew the tide dome.
+  it("draws the current glyph with no reading at all, and tones it unknown", () => {
+    const html = renderToStaticMarkup(
+      <StationCard station={gate} units="metric" onSelect={() => {}} />,
+    );
+    expect(html).toContain("station-glyph unknown");
+    // The dome is the tide form; a gate must never render it.
+    expect(html).toContain('aria-label="Current station"');
+    expect(html).not.toContain('aria-label="Tide station"');
+  });
+
   it("a gate with a companion tide keeps the current as the only reading, tide as a next-line", () => {
     const html = renderToStaticMarkup(
       <StationCard
