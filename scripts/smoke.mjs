@@ -29,20 +29,71 @@ if (!existsSync(CHROME_PATH)) {
 // crash still fails the smoke. (Supersedes the per-block ERR_INTERNET_DISCONNECTED
 // filters the CHS offline checks used before the prefetch existed.)
 const IWLS_HOST = "api-iwls.dfo-mpo.gc.ca";
-// Seascape bathymetry tiles + glyph PBFs stream from this host (see
-// MapScreen.tsx); unreachable in CI/sandbox the same way IWLS is — the map
-// is built to degrade to its local land-only fallback style when this fails,
-// so a failed fetch to it is not an app error either.
+// Seascape bathymetry tiles stream from this host (see MapScreen.tsx);
+// unreachable in CI/sandbox the same way IWLS is — the map is built to degrade
+// to its local land-only fallback style when this fails, so a failed fetch to
+// it is not an app error either.
 const SEASCAPE_HOST = "tiles.openwaters.io";
+// Glyphs are NOT on the Seascape host: its style.json points `glyphs` at
+// maplibre's demo font server, so the label layer mapStyle.ts adds fetches its
+// PBFs from a third host. Same class of noise, needed its own entry.
+const GLYPH_HOST = "demotiles.maplibre.org";
 function isChsFetchNoise(text) {
   return (
     text.includes(IWLS_HOST) ||
     text.includes(SEASCAPE_HOST) ||
+    text.includes(GLYPH_HOST) ||
+    // maplibre re-wraps a rejected fetch as a bare Error carrying no URL (its
+    // AJAXError, which does name the host, only exists when a response came
+    // back at all), so under a deliberately cut network there is nothing to
+    // attribute this to but the emulation itself. Anchored so only that exact
+    // message passes; pageerror is never filtered, so a real crash still fails.
+    /^Error: Failed to fetch$/.test(text) ||
     /blocked by CORS policy/.test(text) ||
     /Failed to load resource: net::ERR_(FAILED|INTERNET_DISCONNECTED|NAME_NOT_RESOLVED|CONNECTION_REFUSED|TIMED_OUT|ADDRESS_UNREACHABLE)/.test(
       text,
     )
   );
+}
+
+/**
+ * Collects a page's errors, resolving console arguments to their real text.
+ *
+ * `msg.text()` renders an object argument as `[object Ae]` — the minified class
+ * name — so maplibre's AJAXError arrives with the host it names invisible and
+ * isChsFetchNoise cannot classify it. That is what failed CI on 2026-08-02
+ * while passing locally, where a newer Chrome happened to print the message
+ * instead. Read the message off the argument handles rather than trusting the
+ * rendered text. Resolving a handle is async, so each listener records a
+ * promise and the returned settle() awaits them before anything is asserted.
+ *
+ * pageerror entries are never filtered — a real render crash must always fail.
+ */
+function watchErrors(page) {
+  const pending = [];
+  page.on("pageerror", (err) => pending.push(Promise.resolve({ kind: "pageerror", raw: err.message })));
+  page.on("console", (msg) => {
+    if (msg.type() !== "error") return;
+    pending.push(
+      Promise.all(
+        msg.args().map((arg) =>
+          arg
+            .evaluate((o) => (o instanceof Error ? `${o.name}: ${o.message}` : String(o)))
+            .catch(() => null),
+        ),
+      )
+        // Falls back to the rendered text when the page closed before the
+        // handles could be read, or when there are no arguments at all
+        // (browser-level "Failed to load resource" lines).
+        .then((parts) => parts.filter(Boolean).join(" ") || msg.text())
+        .catch(() => msg.text())
+        .then((raw) => ({ kind: "console.error", raw, filterable: true })),
+    );
+  });
+  return async () => {
+    const seen = await Promise.all(pending);
+    return seen.filter((e) => !e.filterable || !isChsFetchNoise(e.raw)).map((e) => `${e.kind}: ${e.raw}`);
+  };
 }
 
 function waitForServer(url, timeoutMs = 15_000) {
@@ -74,7 +125,6 @@ async function main() {
   server.stdout.on("data", (d) => (serverOutput += d));
   server.stderr.on("data", (d) => (serverOutput += d));
 
-  const errors = [];
   let browser;
   try {
     await waitForServer(URL);
@@ -104,7 +154,6 @@ async function main() {
     // offline-capable fallback, not just that the container div mounted.
     // pageerror stays unfiltered — a real MapLibre crash must still fail the
     // smoke.
-    const mapErrors = [];
     const mapPage = await browser.newPage();
     // First load installs the service worker but does NOT control this page yet
     // (registerType 'prompt' → no clientsClaim; a SW only controls navigations
@@ -154,26 +203,25 @@ async function main() {
     // check below: the proof fetch above deliberately targets an unreachable
     // origin and Chrome logs its own resource-load error for that regardless
     // of the JS-level .catch() — a false positive if counted as an app error.
-    mapPage.on("pageerror", (err) => mapErrors.push(`pageerror: ${err.message}`));
-    mapPage.on("console", (msg) => {
-      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) mapErrors.push(`console.error: ${msg.text()}`);
-    });
+    const settleMapErrors = watchErrors(mapPage);
 
     await mapPage.reload({ waitUntil: "domcontentloaded" });
     // This is the assertion Fix 1 exists for: before the runtime Range route,
     // the pmtiles read against the SW's precached (Range-less) response
     // throws before MapLibre ever gets a canvas up.
     await mapPage.waitForSelector(".map-canvas .maplibregl-canvas", { timeout: 10_000 });
+    // The canvas appears well before the map has finished failing its external
+    // fetches, so asserting the instant it exists passed for the wrong reason —
+    // the errors simply hadn't been logged yet. Settle first, then judge.
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    const mapErrors = await settleMapErrors();
     if (mapErrors.length) {
       throw new Error(`/map offline reload reported errors:\n${mapErrors.join("\n")}`);
     }
     await mapPage.close();
 
     const page = await browser.newPage();
-    page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
-    page.on("console", (msg) => {
-      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) errors.push(`console.error: ${msg.text()}`);
-    });
+    const settleErrors = watchErrors(page);
 
     // domcontentloaded, not networkidle0: the PWA's service-worker precaching
     // keeps making requests, so the network never goes idle and networkidle0
@@ -185,7 +233,8 @@ async function main() {
     // for (fileURLToPath crashing the app before it ever paints) — surface it
     // directly rather than letting the DOM assertions below report a less
     // useful "found nothing" symptom.
-    if (errors.length) throw new Error(`page reported errors:\n${errors.join("\n")}`);
+    const loadErrors = await settleErrors();
+    if (loadErrors.length) throw new Error(`page reported errors:\n${loadErrors.join("\n")}`);
 
     // Gate screen: real heading text, not just a non-empty document. A blank
     // page never gets an h1, so this also catches the crash directly.
@@ -267,15 +316,12 @@ async function main() {
     // in-app session. Without the URL a fresh load falls back to the
     // gate's default station (Friday Harbor, not Everett), so this also
     // proves the route — not leftover state — picked the station.
-    const deepLinkErrors = [];
     const deepLinkPage = await browser.newPage();
-    deepLinkPage.on("pageerror", (err) => deepLinkErrors.push(`pageerror: ${err.message}`));
-    deepLinkPage.on("console", (msg) => {
-      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) deepLinkErrors.push(`console.error: ${msg.text()}`);
-    });
+    const settleDeepLinkErrors = watchErrors(deepLinkPage);
     await deepLinkPage.goto(`${URL}tide/everett/2026-07-20T14:35-07:00`, {
       waitUntil: "domcontentloaded",
     });
+    const deepLinkErrors = await settleDeepLinkErrors();
     if (deepLinkErrors.length) {
       throw new Error(`deep link page reported errors:\n${deepLinkErrors.join("\n")}`);
     }
@@ -298,7 +344,6 @@ async function main() {
     // load it online first so the service worker installs, precaches, and
     // claims the client, then cut the network at the protocol level and
     // prove the app still renders after a reload.
-    const offlineErrors = [];
     const offlinePage = await browser.newPage();
     await offlinePage.goto(URL, { waitUntil: "domcontentloaded" });
 
@@ -336,10 +381,7 @@ async function main() {
     // line for that regardless of the JS-level .catch() — a false positive if
     // counted as an app error. Real app breakage during the reload below is
     // what these are for.
-    offlinePage.on("pageerror", (err) => offlineErrors.push(`pageerror: ${err.message}`));
-    offlinePage.on("console", (msg) => {
-      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) offlineErrors.push(`console.error: ${msg.text()}`);
-    });
+    const settleOfflineErrors = watchErrors(offlinePage);
 
     await offlinePage.reload({ waitUntil: "domcontentloaded" });
 
@@ -364,6 +406,7 @@ async function main() {
       throw new Error(`offline reload: station count missing from footer, got: ${JSON.stringify(footerText)}`);
     }
 
+    const offlineErrors = await settleOfflineErrors();
     if (offlineErrors.length) {
       throw new Error(`offline reload reported errors:\n${offlineErrors.join("\n")}`);
     }
@@ -374,18 +417,12 @@ async function main() {
     // cut, a CHS route must show the station identity and an honest "needs
     // signal" message, never a blank chart or a dead spinner. Same offline
     // browser context (same `cdp` emulation, new tab) as the NOAA check above.
-    const chsErrors = [];
     const chsPage = await browser.newPage();
-    chsPage.on("pageerror", (err) => chsErrors.push(`pageerror: ${err.message}`));
-    chsPage.on("console", (msg) => {
-      // Unlike NOAA (synchronous, no fetch), the CHS adapter genuinely tries
-      // the network and is genuinely denied — Chrome logs that resource
-      // failure as a console.error itself, same false-positive class as the
-      // deliberate proof-fetch above. Expected here; a real app error is not.
-      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) {
-        chsErrors.push(`console.error: ${msg.text()}`);
-      }
-    });
+    // Unlike NOAA (synchronous, no fetch), the CHS adapter genuinely tries the
+    // network and is genuinely denied — Chrome logs that resource failure as a
+    // console.error itself, same false-positive class as the deliberate
+    // proof-fetch above. Expected here; a real app error is not.
+    const settleChsErrors = watchErrors(chsPage);
     const chsCdp = await chsPage.createCDPSession();
     await chsCdp.send("Network.enable");
     await chsCdp.send("Network.emulateNetworkConditions", {
@@ -413,6 +450,7 @@ async function main() {
     const chsChartCount = (await chsPage.$$(".chart")).length;
     if (chsChartCount !== 0) throw new Error("CHS offline: a chart rendered with no data — expected none");
 
+    const chsErrors = await settleChsErrors();
     if (chsErrors.length) {
       throw new Error(`CHS offline page reported errors:\n${chsErrors.join("\n")}`);
     }
@@ -421,14 +459,8 @@ async function main() {
     // Task 11: current gates (Active Pass etc.) are identity-only too — no
     // constituents shipped, same offline contract as a CHS tide port. Same
     // pattern as the chsPage block above: fresh tab, same cut network.
-    const gateErrors = [];
     const gatePage = await browser.newPage();
-    gatePage.on("pageerror", (err) => gateErrors.push(`pageerror: ${err.message}`));
-    gatePage.on("console", (msg) => {
-      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) {
-        gateErrors.push(`console.error: ${msg.text()}`);
-      }
-    });
+    const settleGateErrors = watchErrors(gatePage);
     const gateCdp = await gatePage.createCDPSession();
     await gateCdp.send("Network.enable");
     await gateCdp.send("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
@@ -442,18 +474,15 @@ async function main() {
       throw new Error(`CHS gate offline: expected the "needs signal" message, got: ${JSON.stringify(gateSignalText)}`);
     }
     if ((await gatePage.$$(".chart")).length !== 0) throw new Error("CHS gate offline: a chart rendered with no data — expected none");
+    const gateErrors = await settleGateErrors();
     if (gateErrors.length) throw new Error(`CHS gate offline page reported errors:\n${gateErrors.join("\n")}`);
     await gatePage.close();
 
     // Regression guard: the CHS route above must not have broken NOAA's
     // offline render (e.g. a shared code path throwing). Fresh tab, same cut
     // network, a plain NOAA station.
-    const noaaErrors = [];
     const noaaPage = await browser.newPage();
-    noaaPage.on("pageerror", (err) => noaaErrors.push(`pageerror: ${err.message}`));
-    noaaPage.on("console", (msg) => {
-      if (msg.type() === "error" && !isChsFetchNoise(msg.text())) noaaErrors.push(`console.error: ${msg.text()}`);
-    });
+    const settleNoaaErrors = watchErrors(noaaPage);
     const noaaCdp = await noaaPage.createCDPSession();
     await noaaCdp.send("Network.enable");
     await noaaCdp.send("Network.emulateNetworkConditions", {
@@ -475,13 +504,17 @@ async function main() {
     }
     await noaaPage.waitForSelector(".chart", { timeout: 5_000 });
 
+    const noaaErrors = await settleNoaaErrors();
     if (noaaErrors.length) {
       throw new Error(`NOAA offline regression page reported errors:\n${noaaErrors.join("\n")}`);
     }
     await noaaPage.close();
 
-    if (errors.length) {
-      throw new Error(`page reported errors:\n${errors.join("\n")}`);
+    // Everything the first page logged across the whole walkthrough above, not
+    // just its initial load.
+    const finalErrors = await settleErrors();
+    if (finalErrors.length) {
+      throw new Error(`page reported errors:\n${finalErrors.join("\n")}`);
     }
 
     console.log(
