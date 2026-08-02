@@ -78,15 +78,18 @@ describe("pinGlyphImage", () => {
     expect(midtones).toBeGreaterThan(alphas.length * 0.15);
   });
 
-  it("puts the shape edge at alpha 128 — inside is brighter, far outside is dark", () => {
+  it("puts the shape edge at maplibre's 0.75 threshold, and saturates inside", () => {
     const img = pinGlyphImage("tide");
     const mid = Math.floor(img.width / 2);
-    // The tide glyph's datum line sits low in the box; its dome crosses the
-    // vertical centre near the top. Corners are always far outside any stroke.
-    expect(alphaAt(img, 0, 0)).toBeLessThan(128);
+    // maplibre's SDF shader thresholds the icon fill at buff = 192/256 = 0.75
+    // (verified in maplibre-gl 5.24.0: `buff=(256.0-64.0)/256.0`), so the shape
+    // edge must encode at ~191 and the interior must exceed it — reaching 255,
+    // or the stroke renders thin-to-invisible however correct the geometry is.
+    expect(alphaAt(img, 0, 0)).toBe(0); // corner: far outside every stroke
     const column = [];
     for (let y = 0; y < img.height; y++) column.push(alphaAt(img, mid, y));
-    expect(Math.max(...column)).toBeGreaterThan(128);
+    expect(Math.max(...column)).toBe(255);
+    expect(column.some((a) => a > 180 && a < 205)).toBe(true); // the edge band
   });
 
   it("draws different shapes for the two kinds", () => {
@@ -142,8 +145,17 @@ export const PIN_IMAGE_ID: Record<PinKind, string> = {
 export const PIN_PIXEL_RATIO = 2;
 
 const SIZE = 22 * PIN_PIXEL_RATIO; // field is SIZE x SIZE
-/** Distance spread, in field pixels, over which alpha ramps 255 -> 0. */
-const SPREAD = 8;
+/**
+ * maplibre's SDF constants, not ours to choose. Its shader thresholds the icon
+ * fill at `buff = (256 - 64) / 256 = 0.75` over a field authored with
+ * `SDF_PX = 8` texture pixels — so the shape edge encodes at 0.75 (~191), not
+ * at the 0.5 an intuitive signed-distance encoding would use. Encode the edge
+ * at 0.5 and the whole glyph sits below the shader's threshold and renders
+ * invisible, however correct the geometry is. Matches `@mapbox/tiny-sdf`'s
+ * `cutoff = 0.25`.
+ */
+const SDF_PX = 8;
+const SDF_CUTOFF = 0.25;
 
 type Pt = { x: number; y: number };
 type Stroke = { points: Pt[]; width: number };
@@ -222,8 +234,9 @@ export function pinGlyphImage(kind: PinKind): { width: number; height: number; d
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
       const d = signedDistance({ x: x + 0.5, y: y + 0.5 }, strokes);
-      // maplibre's SDF convention: 128 is the edge, higher is inside.
-      const a = Math.round(255 * Math.max(0, Math.min(1, 0.5 - d / (2 * SPREAD))));
+      // 255 * (1 - cutoff - d/SDF_PX): edge (d=0) lands at ~191, the interior
+      // saturates to 255, and the field reaches 0 at 6px outside the stroke.
+      const a = Math.round(255 * Math.max(0, Math.min(1, 1 - SDF_CUTOFF - d / SDF_PX)));
       const i = (y * SIZE + x) * 4;
       data[i] = 255;
       data[i + 1] = 255;
