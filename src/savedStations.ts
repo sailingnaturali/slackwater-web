@@ -5,6 +5,14 @@ export interface Saved {
   starred: string[];
   recent: string[];
   lastLocationSlug: string | null;
+  /**
+   * The station most recently opened, starred or not. Distinct from
+   * `recent[0]`: `withRecent` deliberately keeps starred stations out of
+   * recent (they are already listed above), so star your home station and it
+   * would never be what a cold load reopened. That exclusion is right for the
+   * list; it is wrong for "where was I", which is what this answers.
+   */
+  lastViewedSlug: string | null;
   /** Place name -> station slug. A deliberate pick for a named place, not a coordinate. */
   placeStations: Record<string, string>;
 }
@@ -22,7 +30,13 @@ export const STARRED_LIMIT = 50;
  * being nearby and becomes the full list, which is what search is for. */
 export const NEARBY_ALL_LIMIT = 20;
 
-const EMPTY: Saved = { starred: [], recent: [], lastLocationSlug: null, placeStations: {} };
+const EMPTY: Saved = {
+  starred: [],
+  recent: [],
+  lastLocationSlug: null,
+  lastViewedSlug: null,
+  placeStations: {},
+};
 
 function isPlaceStations(value: unknown): value is Record<string, string> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -37,6 +51,9 @@ export function loadSaved(): Saved {
       starred: Array.isArray(parsed?.starred) ? parsed.starred : [],
       recent: Array.isArray(parsed?.recent) ? parsed.recent : [],
       lastLocationSlug: typeof parsed?.lastLocationSlug === "string" ? parsed.lastLocationSlug : null,
+      // Absent from stores written before this field existed — reads as null,
+      // and `initialStation` falls back to recent[0] for exactly that case.
+      lastViewedSlug: typeof parsed?.lastViewedSlug === "string" ? parsed.lastViewedSlug : null,
       placeStations: isPlaceStations(parsed?.placeStations) ? parsed.placeStations : {},
     };
   } catch {
@@ -80,7 +97,9 @@ export function unstar(slug: string): Saved {
 
 export function visit(slug: string): Saved {
   const saved = loadSaved();
-  return write({ ...saved, recent: withRecent(saved, slug) });
+  // lastViewedSlug records the visit unconditionally; recent still skips
+  // starred stations. Two questions, two fields.
+  return write({ ...saved, recent: withRecent(saved, slug), lastViewedSlug: slug });
 }
 
 export function forget(slug: string): Saved {

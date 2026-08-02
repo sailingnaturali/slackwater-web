@@ -16,7 +16,7 @@ beforeEach(() => localStorage.clear());
 
 describe("saved stations", () => {
   it("starts empty", () => {
-    expect(loadSaved()).toEqual({ starred: [], recent: [], lastLocationSlug: null, placeStations: {} });
+    expect(loadSaved()).toEqual({ starred: [], recent: [], lastLocationSlug: null, lastViewedSlug: null, placeStations: {} });
   });
 
   it("stars and un-stars", () => {
@@ -63,6 +63,14 @@ describe("saved stations", () => {
     expect(visit("everett").recent).not.toContain("everett");
   });
 
+  it("records the last viewed station even when it is starred", () => {
+    // recent[0] can't answer "where was I" for a starred station — it is kept
+    // out of recent above — so starring your home station used to mean every
+    // cold load reopened the fallback instead of it.
+    star("everett");
+    expect(visit("everett").lastViewedSlug).toBe("everett");
+  });
+
   it("drops the previous location to recent when location changes", () => {
     rememberLocation("everett");
     const after = rememberLocation("cherry-point");
@@ -77,7 +85,7 @@ describe("saved stations", () => {
 
   it("survives a corrupted store rather than throwing", () => {
     localStorage.setItem("slackwater.saved", "{ not json");
-    expect(loadSaved()).toEqual({ starred: [], recent: [], lastLocationSlug: null, placeStations: {} });
+    expect(loadSaved()).toEqual({ starred: [], recent: [], lastLocationSlug: null, lastViewedSlug: null, placeStations: {} });
   });
 
   it("sets and gets a place's station choice", () => {

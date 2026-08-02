@@ -69,10 +69,16 @@ export const FALLBACK = stations.find((s) => /friday harbor/i.test(s.name)) ?? s
 export function initialStation(
   urlMatch: { station: ViewStation } | null,
   saved: Saved,
-  all: ResolvedStation[] = resolvedStations,
+  // The WHOLE pool, not just bundled NOAA tide stations: a last-viewed CHS
+  // port, CHS gate or NOAA current station has to resolve here too, or the
+  // lookup misses and every such station cold-loads as Friday Harbor.
+  all: Candidate[] = candidates,
 ): ViewStation {
   if (urlMatch) return urlMatch.station;
-  const slug = saved.recent[0];
+  // recent[0] is the fallback for stores written before lastViewedSlug existed;
+  // it also can't answer this on its own, since starred stations stay out of
+  // recent by design (see savedStations).
+  const slug = saved.lastViewedSlug ?? saved.recent[0];
   return (slug && all.find((s) => s.slug === slug)) || FALLBACK;
 }
 
