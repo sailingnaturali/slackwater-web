@@ -36,19 +36,32 @@ glance" — which is the question the app exists to answer.
 
 ## 1. The mark
 
-The list glyphs are a 24px double wave (current) and a dome over a datum line (tide). At pin size the
-double wave's second stroke — 2.4px at 50% opacity, close beside the first — reads as a smudge over
-bathymetry contours. So the pin gets its own drawing at its own size, in the same language:
+**Amended 2026-08-02, after using it.** This section first specified the list's wave and dome
+glyphs, redrawn at pin size. Built and lived with, they are too busy: thin curved strokes over
+bathymetry contours make a dense chart denser, and the map stops being calm enough to scan. Rejected
+on use, which is the only way that judgement could have been made.
 
-| Kind | List (24px) | Pin (22px) |
-|---|---|---|
-| current | two waves, second at 50% | **one wave**, full weight |
-| tide | dome + datum line | **dome + shorter datum line** |
+The pin is a **plain map marker**, in the oldest cartographic convention there is — one feature class
+per shape:
 
-Consistency here is of *language*, not of path data: a wave means current and a dome means tide on both
-surfaces. Sharing the literal SVG would be a false economy — it optimises for zero drift between two
-drawings that have different legibility constraints, and buys that with a pin that cannot be read while
-under way.
+| Kind | Mark |
+|---|---|
+| current station | **filled circle** |
+| tide station | **filled square** |
+
+Square versus circle is a *silhouette* difference. That is why it works where the earlier
+filled-vs-hollow attempt did not: a ring and a disc differ only in their interior, which at 5px over
+pale water is nearly nothing, whereas a corner is visible at any size and in peripheral vision. Solid
+shapes also carry the state colour far better than strokes do — a block of colour reads from across
+the screen where a 3px curve does not, which matters because colour is now the map's primary signal.
+
+Draw the square slightly smaller than the circle's diameter so the two read as equal visual weight;
+a square of equal width always looks heavier.
+
+The list keeps its wave and dome (`StationGlyph`). The two surfaces no longer share a mark, and that
+is deliberate rather than drift: a list row is a calm, roomy context where an expressive glyph earns
+its space, and a chart at zoom 12 is not. Kind is still answered on the map — by shape, and in words
+in the popup (§2a).
 
 `icon-halo-color: #0b1a2b` with `icon-halo-width: 1.5` gives every pin a dark separating edge. This is
 the specific mechanism that fixes the contrast problem, and it is also why SDF is required: maplibre
@@ -76,6 +89,26 @@ expressible as a test:
 
 Hex literals rather than CSS custom properties, because maplibre paint expressions cannot read them —
 the same necessity already recorded for `PIN_UNKNOWN`.
+
+## 2a. The popup explains the colour
+
+Colour is the map's primary signal, and a colour with no legend is a puzzle. So the preview popup —
+already shown on hover, and on first tap where there is no hover, with a second tap opening the
+station — carries the reading **in words**:
+
+```
+Boundary Pass
+Salish Sea · Current gate
+● Flooding 2.4 kn
+```
+
+Three additions to what it shows today: the station **kind** named in plain language, the state
+**spelled out** rather than only encoded in the pin's fill, and something honest for a station whose
+state is not known — where the reading line is currently blank.
+
+This makes the map self-teaching. The first click on an amber pin says "Ebbing", and after a day you
+have stopped needing to click at all. It also carries the whole burden of explaining the palette, so
+the map itself needs no legend and no key.
 
 Two things fall out of this for free. The layer count drops from two to one. And the **local fallback
 style can draw pins**: it declares no glyphs, which today forces a dots-only, label-less fallback,
