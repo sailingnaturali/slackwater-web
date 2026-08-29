@@ -1,6 +1,6 @@
 /**
  * Shape the vendored NOAA current-station extract (data/noaa-currents.json,
- * from @sailingnaturali/current-stations — see its README for re-vendoring)
+ * from @openwaters/noaa-current-stations — see its README for re-vendoring)
  * into the app's bundled current stations.
  *
  * Filters, all load-bearing:

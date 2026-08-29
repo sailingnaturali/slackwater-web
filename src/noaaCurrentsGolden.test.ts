@@ -23,7 +23,7 @@ const station: NoaaCurrentStation = {
 describe("PUG1741 vs NOAA's published predictions", () => {
   const mid = new Date((new Date(golden.start).getTime() + new Date(golden.end).getTime()) / 2);
   // Fixture declares end at 2026-08-03T00:00Z but events run through 2026-08-03T22:58Z
-  // (current-stations captures full end-of-day). ±30h from mid only covers through 18:00Z.
+  // (noaa-current-stations captures full end-of-day). ±30h from mid only covers through 18:00Z.
   const state = noaaCurrentState(station, mid, 50);
 
   it("matches every NOAA event within 15 min and 0.1 kn", () => {

@@ -1,5 +1,5 @@
 {
-  "note": "NOAA CO-OPS: harmonic constituents + NOAA's own published predictions for the same window. Public domain. Regenerate with `current-stations golden`.",
+  "note": "NOAA CO-OPS: harmonic constituents + NOAA's own published predictions for the same window. Public domain. Regenerate with `noaa-current-stations golden`.",
   "station": "PUG1741",
   "bin": 27,
   "start": "2026-08-01T00:00:00.000Z",

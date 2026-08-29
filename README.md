@@ -24,7 +24,7 @@ nothing to go down — which is the point for a tool you want to still work in f
 The bundle carries **public-domain NOAA stations only** (`scripts/build-stations.mjs`).
 
 US **current** stations ship too — harmonic constituents from NOAA CO-OPS via
-[`@sailingnaturali/current-stations`](https://github.com/sailingnaturali/current-stations)
+[`@openwaters/noaa-current-stations`](https://github.com/openwatersio/noaa-current-stations)
 (public domain, vendored in `data/noaa-currents.json`), predicted on-device the
 same way heights are. Slack, max flood and max ebb work with no signal in US
 water; Canadian gates stay CHS-online, as below.
