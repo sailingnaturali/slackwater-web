@@ -1,5 +1,11 @@
 # Slackwater (web)
 
+> [!WARNING]
+> **Archived and unmaintained.** The site stays up and an installed copy keeps working
+> offline — the harmonics are computed on your device, so nothing expires. Nothing here
+> gets updated: no new stations, no dependency upgrades, no fixes. Slackwater continues
+> as a native iOS app — [slackwater.xyz](https://slackwater.xyz).
+
 Tide predictions for the Salish Sea that work with **no signal**. Open it once, install it to
 your home screen, and it keeps answering in an anchorage with no bars — the harmonics are
 computed on your device, not fetched.
